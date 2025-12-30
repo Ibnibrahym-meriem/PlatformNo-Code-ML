@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.py[cod]
+venv/
+env/
+.env
+
+# Données & Clés 
+kaggle.json
+backend/temp_data/
+*.csv
+*.xlsx
+*.zip
+
+# VS Code
+.vscode/
