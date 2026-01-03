@@ -14,3 +14,7 @@ backend/temp_data/
 
 # VS Code
 .vscode/
+
+# Database files
+*.db
+*.sqlite3

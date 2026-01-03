@@ -1,12 +1,15 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List, Any, Literal
 from app.services.preprocessing_service import PreprocessingService
 from app.utils.file_manager import load_data_session, save_data_session
+from app.db import User
+from app.users import current_active_user
 
 router = APIRouter(
     prefix="/preprocess",
-    tags=["Preprocessing"]
+    tags=["Preprocessing"],
+    dependencies=[Depends(current_active_user)]
 )
 
 

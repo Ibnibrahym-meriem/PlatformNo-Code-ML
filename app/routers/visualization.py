@@ -1,13 +1,16 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import List, Dict, Any
 import pandas as pd
 import numpy as np
 from app.utils.file_manager import load_data_session
+from app.db import User
+from app.users import current_active_user
 
 router = APIRouter(
     prefix="/vis",
-    tags=["Visualisation"]
+    tags=["Visualisation"],
+    dependencies=[Depends(current_active_user)]
 )
 
 class ColumnRequest(BaseModel):

@@ -1,39 +1,49 @@
 import pandas as pd
-import requests
 import io
-import traceback
+from playwright.async_api import async_playwright
 
-def scrape_url(url: str) -> pd.DataFrame:
-    print(f"--- DÉBUT SCRAPING : {url} ---")
+async def scrape_all_tables(url: str) -> list[pd.DataFrame]:
+    """
+    Récupère TOUTES les tables (statiques + dynamiques JS) d'une URL via Playwright.
+    """
+    async with async_playwright() as p:
+        # 1. Lancer le navigateur (Headless = invisible)
+        browser = await p.chromium.launch(headless=True)
+        
+        # 2. Créer une page et naviguer
+        page = await browser.new_page()
+        try:
+            print(f" Navigation vers {url}...")
+            await page.goto(url)
+            
+            # On attend que le réseau se calme (que le JS ait fini)
+            try:
+                await page.wait_for_load_state("networkidle", timeout=10000)
+            except:
+                print(" Timeout networkidle, on tente de lire quand même.")
+
+            # 3. Récupérer le HTML final (celui généré par le JavaScript)
+            html_content = await page.content()
+            
+        except Exception as e:
+            await browser.close()
+            raise RuntimeError(f"Erreur Playwright: {str(e)}")
+        
+        await browser.close()
+
+    # 4. Parsing avec Pandas ( sur le HTML complet)
     try:
-        # 1. Headers pour ne pas être bloqué par les sites
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
-        
-        # 2. Requête HTTP
-        response = requests.get(url, headers=headers, timeout=15)
-        response.raise_for_status()
-        
-        print("--- PAGE TÉLÉCHARGÉE ---")
+        dfs = pd.read_html(io.StringIO(html_content), thousands=',', decimal='.')
+    except ValueError:
+        return [] 
 
-        # 3. Conversion sécurisée pour Pandas 
-        html_content = io.StringIO(response.text)
-
-        # 4. Extraction des tables
-        dfs = pd.read_html(html_content)
-        
-        if not dfs:
-            raise ValueError("Aucune balise <table> trouvée sur cette page.")
-        
-        print(f"--- {len(dfs)} TABLES TROUVÉES ---")
-        
-        # 5. On prend la première table et on nettoie les colonnes
-        df = dfs[0]
+    # 5. Nettoyage de base 
+    clean_dfs = []
+    for df in dfs:
+        # Convertir tout en string pour éviter les bugs de JSON
         df.columns = df.columns.astype(str)
+        # Enlever les doublons
+        df = df.drop_duplicates()
+        clean_dfs.append(df)
         
-        return df
-
-    except Exception as e:
-        traceback.print_exc() 
-        raise RuntimeError(f"Erreur technique scraping: {e}")
+    return clean_dfs
