@@ -5,8 +5,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.db import create_db_and_tables
-from app.schemas import UserRead, UserCreate
-from app.users import auth_backend, fastapi_users
+from app.schemas import UserRead, UserCreate, UserUpdate
+from app.users import auth_backend, fastapi_users, current_active_user
 from app.routers import data_ingestion
 from app.routers import preprocessing
 from app.routers import visualization
@@ -55,7 +55,12 @@ app.include_router(
     prefix="/auth",
     tags=["Auth"],
 )
-
+# Route pour la GESTION DES UTILISATEURS (/users)
+app.include_router(
+    fastapi_users.get_users_router(UserRead, UserUpdate),
+    prefix="/users",
+    tags=["users"],
+)
 
 app.include_router(data_ingestion.router)
 app.include_router(preprocessing.router)

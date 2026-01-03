@@ -91,12 +91,15 @@ class ManualRequest(BaseModel):
 
 # ---  RECHERCHE KAGGLE ---
 @router.get("/kaggle/search")
-def search_kaggle_route(query: str = Query(..., min_length=2, description="Mot clé de recherche")):
+def search_kaggle_route(
+    query: str = Query(..., min_length=2, description="Mot clé de recherche"),
+    user: User = Depends(current_active_user) 
+):
     """
     Recherche des datasets sur Kaggle et retourne une liste de candidats.
     """
     try:
-        results = search_kaggle_datasets(query)
+        results = search_kaggle_datasets(query, user) 
         return {"results": results, "count": len(results)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -127,18 +130,22 @@ async def upload_file(file: UploadFile = File(...)):
 
 # --- OPTION 2 : KAGGLE API ---
 @router.get("/kaggle")
-def ingest_kaggle(dataset: str = Query(..., description="ID Kaggle (ex: 'titanic')")):
+def ingest_kaggle(
+    dataset: str = Query(..., description="ID Kaggle (ex: 'titanic')"),
+    user: User = Depends(current_active_user) 
+):
     """
     Télécharge un dataset depuis Kaggle via l'API.
     """
     try:
-        df = load_kaggle(dataset)
+        df = load_kaggle(dataset, user)
+        
         response = save_data_session(df)
         response["suggested_target"] = None
         return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur Kaggle : {str(e)}")
-
+    
 
 # --- OPTION 3 : QUICK START (DEMO) ---
 @router.get("/quick-start")
