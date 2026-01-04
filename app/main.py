@@ -10,6 +10,7 @@ from app.users import auth_backend, fastapi_users, current_active_user
 from app.routers import data_ingestion
 from app.routers import preprocessing
 from app.routers import visualization
+from app.routers import model_training
 
 if sys.platform.startswith("win"):
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
@@ -62,9 +63,12 @@ app.include_router(
     tags=["users"],
 )
 
+
+
 app.include_router(data_ingestion.router)
 app.include_router(preprocessing.router)
 app.include_router(visualization.router)
+app.include_router(model_training.router)
 
 @app.get("/")
 def root():
@@ -99,3 +103,9 @@ except AttributeError as e:
 except Exception as e:
     print(f" Visualization : AUTRE ERREUR ({e})")
 
+# 4. Test Model Training
+try:
+    app.include_router(model_training.router)
+    print(" Model Training: Loaded")
+except Exception as e:
+    print(f" Model Training Error: {e}")
