@@ -3,82 +3,91 @@ import zipfile
 import pandas as pd
 from kaggle.api.kaggle_api_extended import KaggleApi
 
-def get_authenticated_api():
+
+def get_authenticated_api(user):
     """
-    Authentification via le fichier local 'kaggle.json' uniquement.
-    (Situé généralement dans C:/Users/VotreNom/.kaggle/kaggle.json)
+    Configure l'API Kaggle avec les clés de l'utilisateur spécifique.
     """
+    if not user.kaggle_username or not user.kaggle_key:
+        raise ValueError(" Clés Kaggle manquantes. Veuillez les configurer dans les paramètres.")
+
+    # On définit les variables d'environnement temporairement pour cet appel
+    os.environ['KAGGLE_USERNAME'] = user.kaggle_username
+    os.environ['KAGGLE_KEY'] = user.kaggle_key
+
     api = KaggleApi()
-    try:
-        api.authenticate()
-        return api
-    except Exception as e:
-        raise ValueError(f"Impossible de trouver 'kaggle.json'. Assurez-vous qu'il est bien dans le dossier .kaggle. Erreur: {e}")
+    api.authenticate()
+    return api
 
-def search_kaggle_datasets(query: str, user=None, max_results: int = 15):
+def search_kaggle_datasets(query: str, user, max_results: int = 15):
     """
-    Cherche des datasets sur Kaggle.
-    (L'argument 'user' est gardé pour compatibilité avec le routeur, mais n'est pas utilisé pour l'auth)
+    Cherche des datasets sur Kaggle (Authentifié via User).
     """
     try:
-        api = get_authenticated_api()
+        # 1. On récupère l'API authentifiée pour cet utilisateur
+        api = get_authenticated_api(user)
 
-        # Recherche des datasets (CSV)
         datasets = api.dataset_list(search=query, sort_by='votes', file_type='csv')
         
         results = []
         for d in datasets[:max_results]:
             results.append({
-                "ref": d.ref,       
-                "title": d.title,   
+                "id": d.ref,
+                "title": d.title,
                 "size": getattr(d, 'size', 'N/A'),
+                "voteCount": getattr(d, 'voteCount', 0),
                 "url": d.url
             })
             
         return results
     except Exception as e:
-        print(f"❌ Erreur recherche Kaggle: {e}")
+        print(f" Error searching Kaggle: {e}")
         return []
 
-def load_dataset(dataset: str, user=None):
+def load_dataset(dataset: str, user):
     """
-    Télécharge un dataset CSV depuis Kaggle.
-    (L'argument 'user' est gardé pour compatibilité avec le routeur)
+    Download a CSV dataset from Kaggle (Authentifié via User).
     """
     try:
-        api = get_authenticated_api()
+        # 1. On récupère l'API authentifiée pour cet utilisateur
+        api = get_authenticated_api(user)
 
-        # Chemin de stockage
+        # 2. Define storage path
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         temp_dir = os.path.join(base_dir, "temp_data")
         os.makedirs(temp_dir, exist_ok=True)
 
-        print(f"⬇️ Téléchargement de {dataset} via kaggle.json local...")
+        print(f" Downloading {dataset} for user {user.kaggle_username}...")
 
-        # Téléchargement
-        api.dataset_download_files(dataset, path=temp_dir, unzip=True)
-        
-        # Trouver le fichier CSV extrait
-        extracted_files = os.listdir(temp_dir)
-        csv_files = [f for f in extracted_files if f.endswith(".csv")]
+        # 3. Get file list
+        files = api.dataset_list_files(dataset).files
+        csv_files = [f.name for f in files if f.name.endswith(".csv")]
         
         if not csv_files:
-            raise ValueError("Aucun fichier CSV trouvé dans ce dataset Kaggle.")
+            raise ValueError("No CSV files found")
         
-        # On prend le premier CSV trouvé
         target_file = csv_files[0]
-        full_path = os.path.join(temp_dir, target_file)
 
-        print(f"✅ Fichier chargé : {full_path}")
-
-        # Lecture Pandas
-        df = pd.read_csv(full_path)
+        # 4. Download
+        api.dataset_download_file(dataset, target_file, path=temp_dir, force=True)
         
-        # Nettoyage NaN pour éviter les erreurs JSON dans le frontend
+        # 5. Handle ZIP
+        full_path = os.path.join(temp_dir, target_file)
+        zip_path = full_path + ".zip"
+
+        if not os.path.exists(full_path) and os.path.exists(zip_path):
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                zip_ref.extractall(temp_dir)
+
+        # 6. Read file
+        if not os.path.exists(full_path):
+            raise FileNotFoundError(f"Could not find file: {full_path}")
+
+        df = pd.read_csv(full_path)
         df = df.where(pd.notnull(df), None)
 
         return df
 
     except Exception as e:
-        print(f"❌ Erreur load_dataset: {e}")
-        raise RuntimeError(f"Erreur Kaggle Load: {str(e)}")
+        print(f" Error in load_dataset: {e}")
+        raise RuntimeError(f"Kaggle Error: {str(e)}")

@@ -5,7 +5,7 @@ from typing import Optional, Dict, Any, List
 from app.services.model_training_service import ModelTrainingService
 from app.utils.file_manager import TEMP_FOLDER
 import os
-from app.utils.ml_config import ML_ALGO_PARAMS # <--- Import the config
+from app.utils.ml_config import ML_ALGO_PARAMS 
 
 router = APIRouter(prefix="/training", tags=["Model Training"])
 service = ModelTrainingService()
