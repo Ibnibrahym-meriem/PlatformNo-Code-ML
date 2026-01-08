@@ -10,6 +10,7 @@ env/
 kaggle.json
 backend/temp_data/
 temp_data/
+temp_files/
 *.csv
 *.xlsx
 *.zip
