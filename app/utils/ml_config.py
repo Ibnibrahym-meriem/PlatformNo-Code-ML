@@ -1,43 +1,55 @@
+# app/utils/ml_config.py
 
 ML_ALGO_PARAMS = {
-    # --- COMMON ALGORITHMS ---
+    # --- SUPERVISED (CLASSIFICATION & REGRESSION) ---
     "Random Forest": [
-        {"name": "n_estimators", "type": "int", "default": 100, "min": 10, "max": 500, "step": 10, "label": "Number of Trees"},
-        {"name": "max_depth", "type": "int", "default": 10, "min": 1, "max": 50, "step": 1, "label": "Max Depth"},
-        {"name": "min_samples_split", "type": "int", "default": 2, "min": 2, "max": 10, "step": 1, "label": "Min Samples Split"}
+        {"name": "n_estimators", "type": "int", "default": 100, "min": 10, "max": 500, "step": 10},
+        {"name": "max_depth", "type": "int", "default": 10, "min": 1, "max": 50, "step": 1},
+        {"name": "min_samples_split", "type": "int", "default": 2, "min": 2, "max": 10, "step": 1}
+    ],
+    "Logistic Regression": [
+        {"name": "max_iter", "type": "int", "default": 1000, "min": 100, "max": 5000, "step": 100},
+        {"name": "C", "type": "float", "default": 1.0, "min": 0.01, "max": 10.0, "step": 0.01}
+    ],
+    "Linear Regression": [
+        # Pas d'hyperparamètres majeurs pour la version simple de sklearn
     ],
     "Decision Tree": [
-        {"name": "max_depth", "type": "int", "default": 10, "min": 1, "max": 50, "step": 1, "label": "Max Depth"},
-        {"name": "min_samples_split", "type": "int", "default": 2, "min": 2, "max": 10, "step": 1, "label": "Min Samples Split"}
+        {"name": "max_depth", "type": "int", "default": 10, "min": 1, "max": 50, "step": 1},
+        {"name": "min_samples_split", "type": "int", "default": 2, "min": 2, "max": 20, "step": 1}
     ],
     "Support Vector Machine (SVM)": [
-        {"name": "C", "type": "float", "default": 1.0, "min": 0.1, "max": 10.0, "step": 0.1, "label": "Regularization (C)"},
-        {"name": "kernel", "type": "categorical", "default": "rbf", "options": ["linear", "poly", "rbf", "sigmoid"], "label": "Kernel"}
+        {"name": "C", "type": "float", "default": 1.0, "min": 0.1, "max": 10.0, "step": 0.1},
+        {"name": "degree", "type": "int", "default": 3, "min": 2, "max": 5, "step": 1} # Only for poly kernel
     ],
     "K-Nearest Neighbors (KNN)": [
-        {"name": "n_neighbors", "type": "int", "default": 5, "min": 1, "max": 20, "step": 1, "label": "Number of Neighbors"},
-        {"name": "weights", "type": "categorical", "default": "uniform", "options": ["uniform", "distance"], "label": "Weights"}
+        {"name": "n_neighbors", "type": "int", "default": 5, "min": 1, "max": 20, "step": 1}
     ],
     "Gradient Boosting": [
-        {"name": "n_estimators", "type": "int", "default": 100, "min": 50, "max": 500, "step": 10, "label": "Number of Estimators"},
-        {"name": "learning_rate", "type": "float", "default": 0.1, "min": 0.01, "max": 1.0, "step": 0.01, "label": "Learning Rate"},
-        {"name": "max_depth", "type": "int", "default": 3, "min": 1, "max": 10, "step": 1, "label": "Max Depth"}
+        {"name": "n_estimators", "type": "int", "default": 100, "min": 50, "max": 500, "step": 50},
+        {"name": "learning_rate", "type": "float", "default": 0.1, "min": 0.01, "max": 1.0, "step": 0.01},
+        {"name": "max_depth", "type": "int", "default": 3, "min": 1, "max": 10, "step": 1}
     ],
     "Neural Network": [
-        {"name": "hidden_layer_sizes", "type": "categorical", "default": (100,), "options": [(50,), (100,), (100, 50)], "label": "Hidden Layers"},
-        {"name": "activation", "type": "categorical", "default": "relu", "options": ["relu", "tanh", "logistic"], "label": "Activation Function"},
-        {"name": "alpha", "type": "float", "default": 0.0001, "min": 0.0001, "max": 0.01, "step": 0.0001, "label": "Alpha (Regularization)"}
+        {"name": "max_iter", "type": "int", "default": 500, "min": 200, "max": 2000, "step": 100},
+        {"name": "alpha", "type": "float", "default": 0.0001, "min": 0.0001, "max": 0.1, "step": 0.0001}
     ],
-    # --- CLASSIFICATION SPECIFIC ---
-    "Logistic Regression": [
-        {"name": "C", "type": "float", "default": 1.0, "min": 0.1, "max": 10.0, "step": 0.1, "label": "Inverse Regularization"},
-        {"name": "solver", "type": "categorical", "default": "lbfgs", "options": ["lbfgs", "liblinear"], "label": "Solver"}
+    "Naive Bayes": [
+        # GaussianNB a peu de paramètres tunables via sliders simples
     ],
-    "Naive Bayes": [], # GaussianNB has no major tunable hyperparameters for this level
-    
-    # --- REGRESSION SPECIFIC ---
-    "Linear Regression": [], # No major hyperparameters
     "Polynomial Regression": [
-         {"name": "degree", "type": "int", "default": 2, "min": 2, "max": 4, "step": 1, "label": "Polynomial Degree"}
+        {"name": "degree", "type": "int", "default": 2, "min": 2, "max": 5, "step": 1}
+    ],
+
+    # --- UNSUPERVISED (CLUSTERING) ---
+    "K-Means": [
+        {
+            "name": "n_clusters",
+            "type": "int",
+            "default": 3,
+            "min": 2,
+            "max": 20,
+            "step": 1
+        }
     ]
 }

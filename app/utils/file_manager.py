@@ -22,7 +22,9 @@ def save_data_session(df: pd.DataFrame, session_id: str = None) -> dict:
     file_path = os.path.join(TEMP_DATA_DIR, f"{session_id}.parquet")
     
     try:
-        # On sauvegarde en Parquet (rapide)
+        # On sauvegarde en Parquet (rapide et garde les types)
+        # On force les noms de colonnes en string pour éviter les erreurs Parquet
+        df.columns = df.columns.astype(str)
         df.to_parquet(file_path, index=False)
     except Exception as e:
         print(f"Erreur Parquet: {e}")
@@ -43,14 +45,18 @@ def save_data_session(df: pd.DataFrame, session_id: str = None) -> dict:
         print(f"Erreur lors de la création de l'aperçu : {e}")
         preview_data = [] 
 
-    # 3. Retour des infos
+    # 3. RETOUR DES INFOS COMPLETES
     return {
         "session_id": session_id,
         "filename": f"{session_id}.parquet",
-        "rows": df.shape[0],
-        "columns": df.shape[1],
+        "rows": df.shape[0],          # Nombre de lignes
+        "cols": df.shape[1],          # Nombre de colonnes (Entier)
+        "columns": df.columns.tolist(), # Liste des noms de colonnes (utile pour la suite)
         "preview": preview_data
     }
+
+TEMP_FOLDER = "temp_files"
+os.makedirs(TEMP_FOLDER, exist_ok=True)
 
 def load_data_session(session_id: str) -> pd.DataFrame:
     """
