@@ -105,14 +105,7 @@ def search_kaggle_route(
         raise HTTPException(status_code=500, detail=str(e))
     
 
-# --- OPTION 1 : UPLOAD FICHIER (CSV / EXCEL) ---
-from fastapi import APIRouter, UploadFile, File, HTTPException
-import pandas as pd
-from io import BytesIO
-# Assure-toi d'importer ta fonction save_data_session
-# from app.utils.file_manager import save_data_session 
-
-router = APIRouter()
+# --- OPTION 1 : UPLOAD FICHIER (CSV / EXCEL/json) ---
 
 @router.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
