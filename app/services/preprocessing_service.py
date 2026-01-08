@@ -4,6 +4,89 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 
 class PreprocessingService:
+
+    @staticmethod
+    def run_auto_pipeline(df: pd.DataFrame, target_column: str = None) -> pd.DataFrame:
+        """
+        Analyse le dataset et applique TOUTES les étapes automatiquement.
+        C'est cette fonction qui décide des stratégies.
+        """
+        df_current = df.copy()
+
+        # --- 1. GÉNÉRATION DES STRATÉGIES DE NETTOYAGE ---
+        cleaning_strategies = []
+        for col in df_current.columns:
+            if df_current[col].isnull().sum() > 0:
+                # Si numérique -> Moyenne
+                if pd.api.types.is_numeric_dtype(df_current[col]):
+                    cleaning_strategies.append({"column": col, "method": "mean"})
+                # Sinon -> Mode
+                else:
+                    cleaning_strategies.append({"column": col, "method": "mode"})
+        
+        # Exécution du nettoyage
+        df_current = PreprocessingService.clean_dataframe(df_current, {
+            "drop_duplicates": True,
+            "strategies": cleaning_strategies
+        })
+
+        # --- 2. GÉNÉRATION DES STRATÉGIES D'ENCODAGE ---
+        encoding_strategies = []
+        # On prend les colonnes texte
+        cat_cols = df_current.select_dtypes(include=['object', 'category']).columns
+        
+        for col in cat_cols:
+            if col == target_column:
+                # La target est toujours Label Encoded
+                encoding_strategies.append({"column": col, "method": "label"})
+            elif df_current[col].nunique() < 10:
+                # Peu de valeurs -> OneHot
+                encoding_strategies.append({"column": col, "method": "onehot"})
+            else:
+                # Beaucoup de valeurs -> Label
+                encoding_strategies.append({"column": col, "method": "label"})
+
+        # Exécution de l'encodage
+        df_current = PreprocessingService.encode_dataframe(df_current, {
+            "strategies": encoding_strategies,
+            "target_column": target_column
+        })
+
+        # --- 3. OUTLIERS (Seulement sur les numériques, hors target) ---
+        # On détecte les colonnes numériques APRÈS encodage
+        num_cols = df_current.select_dtypes(include=[np.number]).columns.tolist()
+        if target_column in num_cols:
+            num_cols.remove(target_column)
+
+        df_current = PreprocessingService.handle_outliers(df_current, {
+            "columns": num_cols,
+            "method": "iqr",
+            "action": "clip"
+        })
+
+        # --- 4. NORMALISATION ---
+        # On reprend les colonnes numériques (mises à jour)
+        num_cols = df_current.select_dtypes(include=[np.number]).columns.tolist()
+        if target_column in num_cols:
+            num_cols.remove(target_column)
+
+        df_current = PreprocessingService.normalize_dataframe(df_current, {
+            "method": "standard",
+            "columns": num_cols
+        })
+
+        # --- 5. BALANCING (Si target présente et classification) ---
+        if target_column and target_column in df_current.columns:
+             if df_current[target_column].nunique() < 20: # Sécurité
+                 try:
+                    df_current = PreprocessingService.balance_data(df_current, {
+                        "target_column": target_column,
+                        "method": "smote"
+                    })
+                 except:
+                     pass # On ignore si ça échoue 
+
+        return df_current
     
     @staticmethod
     def get_dataframe_info(df: pd.DataFrame) -> dict:
@@ -49,34 +132,9 @@ class PreprocessingService:
     @staticmethod
     def clean_dataframe(df: pd.DataFrame, cleaning_params: dict) -> pd.DataFrame:
         """
-        Applique les règles de nettoyage (Auto ou Manuelles).
+        Applique les règles de nettoyage.
         """
         df_clean = df.copy()
-
-        # --- LOGIQUE AUTO-CLEAN (Le Bouton Magique) ---
-        # Si activé, on génère des stratégies automatiques pour les colonnes vides
-        if cleaning_params.get("auto_clean", False):
-            # 1. On force la suppression des doublons en mode auto
-            cleaning_params["drop_duplicates"] = True
-            
-            auto_strategies = []
-            
-            # On parcourt toutes les colonnes pour voir s'il y a des trous
-            for col in df_clean.columns:
-                if df_clean[col].isnull().sum() > 0: # S'il y a des valeurs manquantes
-                    
-                    # Stratégie pour les Nombres -> Moyenne
-                    if pd.api.types.is_numeric_dtype(df_clean[col]):
-                        auto_strategies.append({"column": col, "method": "mean"})
-                    
-                    # Stratégie pour le Texte/Catégories -> Mode (Valeur la plus fréquente)
-                    else:
-                        auto_strategies.append({"column": col, "method": "mode"})
-            
-            # On ajoute ces stratégies auto à la liste (sans écraser celles manuelles s'il y en a)
-            existing_strategies = cleaning_params.get("strategies", [])
-            cleaning_params["strategies"] = existing_strategies + auto_strategies
-        # ----------------------------------------------
 
         # 1. Suppression des doublons
         if cleaning_params.get("drop_duplicates", False):
@@ -121,27 +179,9 @@ class PreprocessingService:
     @staticmethod
     def encode_dataframe(df: pd.DataFrame, encoding_params: dict) -> pd.DataFrame:
         """
-        Gère Label, One-Hot et TARGET Encoding (Auto ou Manuel).
+        Gère Label, One-Hot et TARGET Encoding.
         """
         df_encoded = df.copy()
-        
-        # --- LOGIQUE AUTO-ENCODE ---
-        if encoding_params.get("auto_encode", False):
-            auto_strategies = []
-            # On prend toutes les colonnes de type 'object' (texte) ou 'category'
-            cat_cols = df_encoded.select_dtypes(include=['object', 'category']).columns
-            
-            for col in cat_cols:
-                # Heuristique : Si peu de catégories (<10) -> OneHot, sinon -> Label
-                if df_encoded[col].nunique() < 10:
-                    auto_strategies.append({"column": col, "method": "onehot"})
-                else:
-                    auto_strategies.append({"column": col, "method": "label"})
-            
-            # On fusionne avec les stratégies manuelles
-            encoding_params["strategies"] = encoding_params.get("strategies", []) + auto_strategies
-        # ---------------------------
-
         strategies = encoding_params.get("strategies", [])
         target_col = encoding_params.get("target_column") 
         
@@ -188,26 +228,9 @@ class PreprocessingService:
     @staticmethod
     def normalize_dataframe(df: pd.DataFrame, normalization_params: dict) -> pd.DataFrame:
         """
-        Normalise les colonnes numériques (Auto ou Manuel).
+        Normalise les colonnes numériques.
         """
         df_norm = df.copy()
-        
-        # --- LOGIQUE AUTO-NORMALIZE ---
-        if normalization_params.get("auto_normalize", False):
-            # 1. On prend toutes les colonnes numériques
-            numeric_cols = df_norm.select_dtypes(include=[np.number]).columns.tolist()
-            
-            # 2. IMPORTANT : On retire la Target de la liste (si elle est définie)
-            # On ne veut pas normaliser la réponse (y), juste les features (X)
-            target_col = normalization_params.get("target_column")
-            if target_col and target_col in numeric_cols:
-                numeric_cols.remove(target_col)
-            
-            # 3. On applique les paramètres auto
-            normalization_params["columns"] = numeric_cols
-            normalization_params["method"] = "standard" # Standard est le meilleur défaut
-        # ------------------------------
-
         method = normalization_params.get("method", "standard")
         target_cols = normalization_params.get("columns", [])
         
@@ -230,20 +253,9 @@ class PreprocessingService:
     @staticmethod
     def handle_outliers(df: pd.DataFrame, params: dict) -> pd.DataFrame:
         """
-        Détecte et traite les outliers (Auto ou Manuel).
+        Détecte et traite les outliers.
         """
         df_out = df.copy()
-        
-        # --- LOGIQUE AUTO-OUTLIERS ---
-        if params.get("auto_outliers", False):
-            # En auto, on traite toutes les colonnes numériques avec IQR et Clip
-            num_cols = df_out.select_dtypes(include=[np.number]).columns.tolist()
-            params["columns"] = num_cols
-            params["method"] = "iqr"
-            params["action"] = "clip" # Plus sûr que drop
-            params["threshold"] = 1.5
-        # -----------------------------
-
         method = params.get("method", "iqr")
         threshold = params.get("threshold", 1.5)
         action = params.get("action", "clip")

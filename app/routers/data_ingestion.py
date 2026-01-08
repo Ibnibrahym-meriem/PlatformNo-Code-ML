@@ -106,24 +106,51 @@ def search_kaggle_route(
     
 
 # --- OPTION 1 : UPLOAD FICHIER (CSV / EXCEL) ---
+from fastapi import APIRouter, UploadFile, File, HTTPException
+import pandas as pd
+from io import BytesIO
+# Assure-toi d'importer ta fonction save_data_session
+# from app.utils.file_manager import save_data_session 
+
+router = APIRouter()
+
 @router.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
     """
-    Charge un fichier CSV ou Excel envoyé par l'utilisateur.
+    Charge un fichier CSV, Excel ou JSON envoyé par l'utilisateur.
     """
-    if not (file.filename.endswith(".csv") or file.filename.endswith((".xls", ".xlsx"))):
-        raise HTTPException(status_code=400, detail="Format non supporté. Utilisez CSV ou Excel.")
+    # 1. Liste des extensions autorisées
+    allowed_extensions = (".csv", ".xls", ".xlsx", ".json")
+    
+    # Vérification 
+    if not file.filename.endswith(allowed_extensions):
+        raise HTTPException(
+            status_code=400, 
+            detail="Format non supporté. Utilisez CSV, Excel ou JSON."
+        )
 
     try:
         contents = await file.read()
-        if file.filename.endswith(".csv"):
-            df = pd.read_csv(BytesIO(contents))
-        else:
-            df = pd.read_excel(BytesIO(contents))
+        file_obj = BytesIO(contents) 
         
+        # 2. Aiguillage selon le type de fichier
+        if file.filename.endswith(".csv"):
+            df = pd.read_csv(file_obj)
+            
+        elif file.filename.endswith((".xls", ".xlsx")):
+            df = pd.read_excel(file_obj)
+            
+        elif file.filename.endswith(".json"):
+            df = pd.read_json(file_obj)
+        
+        # 3. Sauvegarde 
         response = save_data_session(df)
         response["suggested_target"] = None 
         return response
+
+    except ValueError as e:
+        # Erreur spécifique si le JSON est mal formé
+        raise HTTPException(status_code=400, detail=f"Structure du fichier invalide : {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Erreur de lecture : {str(e)}")
 
