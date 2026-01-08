@@ -1,7 +1,10 @@
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 from app.services.model_training_service import ModelTrainingService
+from app.utils.file_manager import TEMP_FOLDER
+import os
 from app.utils.ml_config import ML_ALGO_PARAMS # <--- Import the config
 
 router = APIRouter(prefix="/training", tags=["Model Training"])
@@ -16,7 +19,7 @@ class TrainRequest(BaseModel):
     session_id: str
     target_column: Optional[str] = None 
     problem_type: str  # "Classification", "Regression", or "Unsupervised"
-    algorithm_name: str 
+    algorithm_names: List[str] 
     
     # ✅ SPLIT LOGIC:
     # 1. default=0.2 : If the user ignores the slider, this value is used.
@@ -25,8 +28,9 @@ class TrainRequest(BaseModel):
     # Cross-Validation Logic
     # Default is 5. We limit it between 2 and 20 to prevent server overload.
     k_folds: int = Field(5, ge=2, le=20, description="Number of Cross-Validation folds")
-    #  Dictionary for hyperparameters (e.g. {"n_estimators": 150})
-    hyperparameters: Optional[Dict[str, Any]] = {}
+    #  Dictionary of dictionary for hyperparameters 
+    # Key = Algorithm Name, Value = Params for that algorithm
+    hyperparameters: Optional[Dict[str, Dict[str, Any]]] = {}
 
 # --- ENDPOINTS ---
 
@@ -55,22 +59,38 @@ def detect_problem_type(request: TargetSelectionRequest):
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/train")
-def train_model(request: TrainRequest):
+def train_models(request: TrainRequest):
     """
-    Executes training using the split_ratio provided (or default).
+    Executes training for MULTIPLE algorithms.
     """
     try:
-        # The 'split_ratio' is automatically extracted from the request
-        result = service.train_model(
+        # We call a new method in the service that handles the loop
+        response_data = service.train_models(
             session_id=request.session_id,
             target_column=request.target_column,
             problem_type=request.problem_type,
-            algorithm_name=request.algorithm_name,
+            algorithm_names=request.algorithm_names, # List
             split_ratio=request.split_ratio,
-            k_folds=request.k_folds, # Passing the new parameter
-            hyperparameters=request.hyperparameters # Pass the dictionary
+            k_folds=request.k_folds,
+            hyperparameters=request.hyperparameters # Nested Dict
         )
-        return result
+        return response_data
     except Exception as e:
         print(f"Training Error: {e}")
         raise HTTPException(status_code=500, detail=f"Training failed: {str(e)}")
+    
+
+
+
+#  Download Report (.pdf)
+@router.get("/download/report/{filename}")
+def download_report(filename: str):
+    """
+    Download the comparison report generated during training.
+    """
+    file_path = os.path.join(TEMP_FOLDER, filename)
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Report file not found.")
+    
+    #  media_type is now application/pdf
+    return FileResponse(path=file_path, filename=filename, media_type='application/pdf')

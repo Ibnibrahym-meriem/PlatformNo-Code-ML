@@ -10,7 +10,7 @@ from fastapi_users.authentication import (
 )
 from app.db import User, get_user_db
 
-SECRET = "MA_PHRASE_TRES_SECRETE_QUI_DOIT_ETRE_LONGUE"
+SECRET = "fJCEOk1Ua1msv6-Tk37giyS75s3kZ0MwRFiSttfXgT8"
 
 # 1. Configuration du Manager
 class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
