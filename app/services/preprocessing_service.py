@@ -13,78 +13,150 @@ class PreprocessingService:
         """
         df_current = df.copy()
 
-        # --- 1. GÉNÉRATION DES STRATÉGIES DE NETTOYAGE ---
-        cleaning_strategies = []
+        # --- 1. GESTION DES DOUBLONS ---
+        initial_rows = len(df_current)
+        df_current = df_current.drop_duplicates()
+        if len(df_current) < initial_rows:
+            print(f"Doublons supprimés : {initial_rows - len(df_current)}")
+
+        # --- 2. GESTION INTELLIGENTE DES VALEURS MANQUANTES ---
+        cols_to_drop = []
+        rows_to_drop_indices = set()
+        imputation_strategies = []
+
         for col in df_current.columns:
-            if df_current[col].isnull().sum() > 0:
-                # Si numérique -> Moyenne
-                if pd.api.types.is_numeric_dtype(df_current[col]):
-                    cleaning_strategies.append({"column": col, "method": "mean"})
-                # Sinon -> Mode
+            missing_count = df_current[col].isnull().sum()
+            if missing_count > 0:
+                ratio = missing_count / len(df_current)
+
+                # Cas A : > 40% -> On supprime la COLONNE
+                if ratio > 0.40:
+                    cols_to_drop.append(col)
+                
+                # Cas B : < 5% -> On marquera les LIGNES à supprimer
+                elif ratio < 0.05:
+                    # On note les index des lignes vides pour ce champ
+                    rows_to_drop_indices.update(df_current[df_current[col].isnull()].index)
+                
+                # Cas C : Entre 5% et 40% -> On IMPUTE (Remplissage)
                 else:
-                    cleaning_strategies.append({"column": col, "method": "mode"})
+                    # Si c'est un nombre
+                    if pd.api.types.is_numeric_dtype(df_current[col]):
+                        # Test de Skewness (Asymétrie)
+                        # Si > 1 ou < -1, la distribution est biaisée -> Médiane
+                        # Sinon, c'est une courbe en cloche -> Moyenne
+                        skew_val = df_current[col].skew()
+                        if abs(skew_val) > 1:
+                            imputation_strategies.append({"column": col, "method": "median"})
+                        else:
+                            imputation_strategies.append({"column": col, "method": "mean"})
+                    
+                    # Si c'est du texte -> Mode 
+                    else:
+                        imputation_strategies.append({"column": col, "method": "mode"})
+
+        # Application des suppressions
+        if cols_to_drop:
+            df_current.drop(columns=cols_to_drop, inplace=True)
         
-        # Exécution du nettoyage
-        df_current = PreprocessingService.clean_dataframe(df_current, {
-            "drop_duplicates": True,
-            "strategies": cleaning_strategies
-        })
+        if rows_to_drop_indices:
+            df_current.drop(index=list(rows_to_drop_indices), inplace=True)
+            df_current.reset_index(drop=True, inplace=True)
+
+        # Application des imputations (pour le reste)
+        if imputation_strategies:
+            df_current = PreprocessingService.clean_dataframe(df_current, {
+                "strategies": imputation_strategies
+            })
 
         # --- 2. GÉNÉRATION DES STRATÉGIES D'ENCODAGE ---
         encoding_strategies = []
         # On prend les colonnes texte
         cat_cols = df_current.select_dtypes(include=['object', 'category']).columns
+
+        if target_column and target_column in cat_cols:
+             le = LabelEncoder()
+             df_current[target_column] = le.fit_transform(df_current[target_column].astype(str))
+             # On retire la target de la liste pour ne pas la ré-encoder
+             cat_cols = [c for c in cat_cols if c != target_column]
         
         for col in cat_cols:
-            if col == target_column:
-                # La target est toujours Label Encoded
-                encoding_strategies.append({"column": col, "method": "label"})
-            elif df_current[col].nunique() < 10:
-                # Peu de valeurs -> OneHot
+            # Cas 1 : Faible cardinalité (< 10) -> OneHot
+            if df_current[col].nunique() < 10:
                 encoding_strategies.append({"column": col, "method": "onehot"})
+            
+            # Cas 2 : Haute cardinalité (> 10)
             else:
-                # Beaucoup de valeurs -> Label
-                encoding_strategies.append({"column": col, "method": "label"})
-
+                # Si on a une target 
+                if target_column in df_current.columns:
+                    encoding_strategies.append({"column": col, "method": "target"})
+                else:
+                    # Pas de target -> Label Encoding 
+                    encoding_strategies.append({"column": col, "method": "label"})
         # Exécution de l'encodage
-        df_current = PreprocessingService.encode_dataframe(df_current, {
-            "strategies": encoding_strategies,
-            "target_column": target_column
-        })
+        if encoding_strategies:
+            df_current = PreprocessingService.encode_dataframe(df_current, {
+                "strategies": encoding_strategies,
+                "target_column": target_column
+            })
 
-        # --- 3. OUTLIERS (Seulement sur les numériques, hors target) ---
-        # On détecte les colonnes numériques APRÈS encodage
+        # --- 4. TRAITEMENT DES OUTLIERS (Sélectif) ---
         num_cols = df_current.select_dtypes(include=[np.number]).columns.tolist()
-        if target_column in num_cols:
-            num_cols.remove(target_column)
+        cols_outliers = []
 
-        df_current = PreprocessingService.handle_outliers(df_current, {
-            "columns": num_cols,
-            "method": "iqr",
-            "action": "clip"
-        })
+        for col in num_cols:
+            if col == target_column: continue
+            
+            # Exclusion 1 : Binaires (0/1)
+            if df_current[col].nunique() <= 2: continue
+            
+            # Exclusion 2 : "Faux numériques" (catégories encodées 1,2,3...10)
+            if df_current[col].nunique() < 15: continue
+
+            # Candidat validé
+            cols_outliers.append(col)
+
+        if cols_outliers:
+            df_current = PreprocessingService.handle_outliers(df_current, {
+                "columns": cols_outliers,
+                "method": "iqr",
+                "threshold": 1.5,
+                "action": "clip" 
+            })
 
         # --- 4. NORMALISATION ---
-        # On reprend les colonnes numériques (mises à jour)
         num_cols = df_current.select_dtypes(include=[np.number]).columns.tolist()
-        if target_column in num_cols:
-            num_cols.remove(target_column)
+        cols_std = []   # Pour distribution Gaussienne
+        cols_minmax = [] # Pour distribution étalée
 
-        df_current = PreprocessingService.normalize_dataframe(df_current, {
-            "method": "standard",
-            "columns": num_cols
-        })
+        for col in num_cols:
+            if col == target_column: continue
+            if df_current[col].nunique() <= 2: continue # Pas les binaires
+            if df_current[col].var() < 1e-5: continue # Variance quasi nulle
+            
+            # Test Skewness
+            skew_val = df_current[col].skew()
+            if -1 < skew_val < 1:
+                cols_std.append(col)
+            else:
+                cols_minmax.append(col)
+
+        if cols_std:
+            df_current = PreprocessingService.normalize_dataframe(df_current, {"method": "standard", "columns": cols_std})
+        if cols_minmax:
+            df_current = PreprocessingService.normalize_dataframe(df_current, {"method": "minmax", "columns": cols_minmax})
 
         # --- 5. BALANCING (Si target présente et classification) ---
         if target_column and target_column in df_current.columns:
              if df_current[target_column].nunique() < 20: # Sécurité
-                 try:
-                    df_current = PreprocessingService.balance_data(df_current, {
-                        "target_column": target_column,
-                        "method": "smote"
-                    })
-                 except:
-                     pass # On ignore si ça échoue 
+                 counts = df_current[target_column].value_counts()
+                 if (counts.min() / counts.max()) < 0.6: # Si déséquilibre marqué
+                     try:
+                        df_current = PreprocessingService.balance_data(df_current, {
+                            "target_column": target_column, "method": "smote"
+                        })
+                     except:
+                         pass # On ignore si ça échoue 
 
         return df_current
     
@@ -216,7 +288,6 @@ class PreprocessingService:
             # --- Cas 3 : TARGET ENCODING ---
             elif method == "target":
                 if not target_col or target_col not in df_encoded.columns:
-                    # En auto, on saute si pas de target, sinon erreur
                     continue 
                 means = df_encoded.groupby(col)[target_col].transform("mean")
                 df_encoded[col] = means
