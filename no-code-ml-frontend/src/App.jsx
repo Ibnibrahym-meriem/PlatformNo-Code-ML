@@ -9,7 +9,11 @@ import Register from './pages/Auth/Register';
 import Documentation from './pages/Documentation/Documentation'; 
 import Ingestion from './pages/Ingestion/Ingestion';
 import Visualization from './pages/Visualization/Visualization';
-import DataLab from './pages/Lab/DataLab';
+
+
+// ✅ MODIFICATION ICI : Import du bon fichier
+import PreprocessingDashboard from './pages/Lab/PreprocessingDashboard';
+
 import ModelTraining from './pages/Training/Training';
 import Results from './pages/Results/Results'; 
 
@@ -24,23 +28,22 @@ function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          {/* --- Routes Publiques (Sans Menu) --- */}
+          {/* --- Routes Publiques --- */}
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
 
-          {/* --- DASHBOARD (Avec Menu Latéral) --- */}
+          {/* --- DASHBOARD --- */}
           <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-            
-            {/* ✅ CORRECTION ICI : "docs" est devenu "documentation" pour correspondre à votre URL */}
             <Route path="/documentation" element={<Documentation />} />
-            
             <Route path="/ingestion" element={<Ingestion />} />
             <Route path="/visualization" element={<Visualization />} />
-            <Route path="/lab" element={<DataLab />} />
+            
+            {/* ✅ ROUTE CORRIGÉE : Pointe vers le nouveau dashboard */}
+            <Route path="/lab" element={<PreprocessingDashboard />} />
+            
             <Route path="/training" element={<ModelTraining />} />
             <Route path="/results" element={<Results />} />
-
           </Route>
         </Routes>
       </BrowserRouter>

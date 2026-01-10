@@ -30,7 +30,14 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
+    // 1. Nettoyer l'authentification
     localStorage.removeItem('token');
+    
+    // 2. ✅ NETTOYAGE DES DONNÉES DATAFLOW (Dataset précédent)
+    localStorage.removeItem('current_session_id');
+    localStorage.removeItem('current_filename');
+    localStorage.removeItem('last_training_results');
+
     setToken(null);
     setUser(null);
   };

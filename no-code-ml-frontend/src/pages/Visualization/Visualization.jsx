@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom'; // Pour la redirection si pas de session
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     ScatterChart, Scatter, PieChart, Pie, Cell, Legend
@@ -37,7 +38,7 @@ const Icons = {
     )
 };
 
-// --- LOGIQUE METIER (Calculs) ---
+// --- LOGIQUE METIER (Calculs BoxPlot) ---
 const calculateBoxPlotStats = (data, columnName) => {
     if (!data || data.length === 0) return null;
     const sorted = data.map(d => parseFloat(d)).filter(d => !isNaN(d)).sort((a, b) => a - b);
@@ -70,7 +71,6 @@ const calculateBoxPlotStats = (data, columnName) => {
 
 // --- SOUS-COMPOSANTS UI ---
 
-// 1. Custom BoxPlot (SVG pur)
 const CustomBoxPlot = ({ data, width, height }) => {
     if (!data || !width || !height) return null;
     const margin = { top: 30, bottom: 40, left: 60, right: 20 };
@@ -131,7 +131,6 @@ const CustomBoxPlot = ({ data, width, height }) => {
     );
 };
 
-// 2. Wrapper BoxPlot (Responsive)
 const BoxPlotWrapper = ({ data }) => {
     const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
     const containerRef = useRef(null);
@@ -155,7 +154,6 @@ const BoxPlotWrapper = ({ data }) => {
     );
 };
 
-// 3. Bouton Menu Sidebar
 const MenuButton = ({ id, label, icon, active, onClick }) => {
     return (
         <button
@@ -175,7 +173,6 @@ const MenuButton = ({ id, label, icon, active, onClick }) => {
     );
 };
 
-// 4. Custom Select (Dropdown Moderne)
 const CustomSelect = ({ label, value, options, onChange }) => {
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef(null);
@@ -221,7 +218,7 @@ const CustomSelect = ({ label, value, options, onChange }) => {
                                 <button
                                     type="button"
                                     onClick={() => {
-                                        onChange({ target: { value: option } }); // Simule l'event pour compatibilité
+                                        onChange({ target: { value: option } }); 
                                         setIsOpen(false);
                                     }}
                                     className={`w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center justify-between
@@ -248,39 +245,41 @@ const CustomSelect = ({ label, value, options, onChange }) => {
 
 // --- COMPOSANT PRINCIPAL ---
 const Visualization = () => {
+    const navigate = useNavigate(); // Hook pour navigation
     const [loading, setLoading] = useState(false);
     const [columns, setColumns] = useState({ numeric: [], categorical: [] });
-    const [activeTab, setActiveTab] = useState(null); // Changé à null initialement pour attendre le chargement des données
+    const [activeTab, setActiveTab] = useState(null);
     const [config, setConfig] = useState({ col1: '', col2: '' });
     const [chartData, setChartData] = useState(null);
     const [correlationData, setCorrelationData] = useState(null);
     const [boxplotData, setBoxplotData] = useState(null);
 
+    // --- C'EST ICI QUE L'ID EST RECUPERÉ ---
     const sessionId = localStorage.getItem('current_session_id');
 
-    // Récupération des colonnes et détermination des visualisations compatibles
+    // Récupération des colonnes
     useEffect(() => {
-        if (sessionId) {
-            visService.getColumns(sessionId).then(res => {
-                const numeric = res.data.numeric_columns || [];
-                const categorical = res.data.categorical_columns || [];
-                
-                setColumns({ numeric, categorical });
+        if (!sessionId) return; // Ne rien faire si pas d'ID
 
-                // --- LOGIQUE DE SELECTION AUTOMATIQUE DE L'ONGLET PAR DÉFAUT ---
-                // Si on a des données numériques, on commence par Distribution
-                if (numeric.length > 0) {
-                    setActiveTab('distribution');
-                    setConfig(prev => ({ ...prev, col1: numeric[0] }));
-                } 
-                // Sinon, si on a du catégoriel, on va sur Categorical
-                else if (categorical.length > 0) {
-                    setActiveTab('categorical');
-                    setConfig(prev => ({ ...prev, col1: categorical[0] }));
-                }
+        visService.getColumns(sessionId).then(res => {
+            const numeric = res.data.numeric_columns || [];
+            const categorical = res.data.categorical_columns || [];
+            
+            setColumns({ numeric, categorical });
 
-            }).catch(err => console.error("Erreur colonnes:", err));
-        }
+            if (numeric.length > 0) {
+                setActiveTab('distribution');
+                setConfig(prev => ({ ...prev, col1: numeric[0] }));
+            } 
+            else if (categorical.length > 0) {
+                setActiveTab('categorical');
+                setConfig(prev => ({ ...prev, col1: categorical[0] }));
+            }
+
+        }).catch(err => {
+            console.error("Erreur colonnes:", err);
+            // Optionnel: Gérer l'erreur si la session a expiré côté backend
+        });
     }, [sessionId]);
 
     // Récupération des données graphiques
@@ -439,34 +438,46 @@ const Visualization = () => {
     // --- FILTRAGE DES VISUALISATIONS COMPATIBLES ---
     const getCompatibleVisualizations = () => {
         const options = [];
-        
-        // Distribution & Boxplot : Besoin d'au moins 1 colonne numérique
         if (columns.numeric.length > 0) {
             options.push({ id: 'distribution', label: 'Distribution', icon: Icons.distribution });
             options.push({ id: 'boxplot', label: 'Box Plot (Outliers)', icon: Icons.boxplot });
         }
-        
-        // Scatter Plot & Correlation : Besoin d'au moins 2 colonnes numériques
         if (columns.numeric.length >= 2) {
              options.push({ id: 'scatter', label: 'Nuage de points', icon: Icons.scatter });
              options.push({ id: 'correlation', label: 'Corrélation (Heatmap)', icon: Icons.correlation });
         }
-
-        // Categorical (Pie) : Besoin d'au moins 1 colonne catégorielle
         if (columns.categorical.length > 0) {
             options.push({ id: 'categorical', label: 'Répartition (Pie)', icon: Icons.categorical });
         }
-
         return options;
     };
 
     const availableVisualizations = getCompatibleVisualizations();
 
-    if (!sessionId) return <div className="p-8 text-center text-gray-500">Aucune session active</div>;
+    // --- GESTION SI PAS DE SESSION ---
+    if (!sessionId) return (
+        <div className="flex flex-col items-center justify-center h-full p-8 text-center bg-gray-50/50">
+            <div className="bg-white p-6 rounded-full shadow-sm mb-4">
+                <svg className="w-12 h-12 text-orange-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+            </div>
+            <h2 className="text-xl font-bold text-gray-800 mb-2">Aucune donnée chargée</h2>
+            <p className="text-gray-500 mb-6 max-w-md">
+                Pour visualiser des graphiques, vous devez d'abord importer un jeu de données.
+            </p>
+            <button 
+                onClick={() => navigate('/ingestion')}
+                className="px-6 py-3 bg-orange-600 text-white font-medium rounded-xl hover:bg-orange-700 transition-colors shadow-lg shadow-orange-500/30"
+            >
+                Aller à l'Ingestion
+            </button>
+        </div>
+    );
 
     return (
         <div className="h-[calc(100vh-100px)] flex gap-6 p-6 bg-gray-50/50 font-sans">
-            {/* --- SIDEBAR DE CONTROLE --- */}
+            {/* SIDEBAR */}
             <div className="w-80 flex-shrink-0 flex flex-col gap-6">
                 <div className="bg-white p-5 rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-gray-100 flex flex-col h-full overflow-visible">
                     <div className="mb-6">
@@ -480,7 +491,6 @@ const Visualization = () => {
                                         active={activeTab === type.id} 
                                         onClick={() => {
                                             setActiveTab(type.id);
-                                            // Reset des colonnes quand on change de type incompatible
                                             if (type.id === 'categorical') {
                                                 setConfig({ col1: columns.categorical[0], col2: '' });
                                             } else {
@@ -490,7 +500,7 @@ const Visualization = () => {
                                     />
                                 ))
                             ) : (
-                                <p className="text-sm text-gray-400 italic">Aucune visualisation compatible détectée.</p>
+                                <p className="text-sm text-gray-400 italic">Chargement des colonnes...</p>
                             )}
                         </div>
                     </div>
@@ -500,11 +510,9 @@ const Visualization = () => {
                              <CustomSelect 
                                 label={activeTab === 'scatter' ? 'Axe X (Numérique)' : 'Colonne à analyser'}
                                 value={config.col1}
-                                // Si on est sur Pie Chart, on montre les catégorielles, sinon les numériques
                                 options={activeTab === 'categorical' ? columns.categorical : columns.numeric}
                                 onChange={(e) => setConfig({ ...config, col1: e.target.value })}
                              />
-                            
                             {activeTab === 'scatter' && (
                                 <CustomSelect 
                                     label="Axe Y (Numérique)"
@@ -518,7 +526,7 @@ const Visualization = () => {
                 </div>
             </div>
 
-            {/* --- ZONE PRINCIPALE DU GRAPHIQUE --- */}
+            {/* CHART AREA */}
             <div className="flex-1 bg-white p-8 rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-gray-100 flex flex-col relative overflow-hidden z-0">
                 <div className="flex justify-between items-start mb-8">
                     <div>
@@ -539,7 +547,6 @@ const Visualization = () => {
                             ) : 'Sélectionnez les données à visualiser'}
                         </p>
                     </div>
-                    {/* Badge Stylisé */}
                     {activeTab && (
                         <div className="bg-gradient-to-br from-orange-50 to-white border border-orange-100 shadow-sm rounded-lg px-4 py-2 flex items-center gap-2">
                             <span className="text-orange-500">{Icons[activeTab]}</span>

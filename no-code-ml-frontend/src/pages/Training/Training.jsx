@@ -5,16 +5,39 @@ import {
     Target, ChevronDown, ChevronUp, Play, Sliders, 
     Zap, Activity, Layers, Settings, CheckCircle2, 
     BarChart2, MousePointer2, Database, Check,
-    Component // Icône pour Clustering
+    Component, PieChart, AlertTriangle // Ajout de AlertTriangle
 } from 'lucide-react';
 
-// Assurez-vous que les chemins sont corrects selon votre structure
-import labService from '../../services/labService';
+import PreprocessingService from '../../services/preprocessingService';
 import trainingService from '../../services/trainingService';
 import { PROBLEM_TYPES, ALGO_META } from './constants';
 
-// --- COMPOSANTS UI (Inchangés) ---
+// --- COMPOSANT ICONE MODERNE (Conservé) ---
+const ModernIcon = ({ icon: Icon, color = "orange", size = "md" }) => {
+    const styles = {
+        orange: "from-orange-400 to-orange-600 shadow-orange-500/30",
+        yellow: "from-amber-400 to-amber-600 shadow-amber-500/30",
+        blue:   "from-blue-400 to-blue-600 shadow-blue-500/30",
+        gray:   "from-slate-500 to-slate-700 shadow-slate-500/30",
+        dark:   "from-slate-700 to-slate-900 shadow-slate-900/30",
+        violet: "from-violet-400 to-violet-600 shadow-violet-500/30"
+    };
+    
+    const dims = size === "lg" ? "w-16 h-16 rounded-2xl" : "w-12 h-12 rounded-xl";
+    const iconSize = size === "lg" ? 32 : 22;
 
+    return (
+        <div className={`
+            ${dims} flex items-center justify-center 
+            bg-gradient-to-br ${styles[color] || styles.orange}
+            shadow-lg text-white transform transition-transform hover:scale-105 duration-200
+        `}>
+            <Icon size={iconSize} strokeWidth={2.5} />
+        </div>
+    );
+};
+
+// --- COMPOSANT CARTE ALGO (Conservé) ---
 const AlgoCardItem = ({ name, description, badge, isSelected, onClick }) => (
     <div 
         onClick={onClick}
@@ -34,7 +57,6 @@ const AlgoCardItem = ({ name, description, badge, isSelected, onClick }) => (
         
         <div className="flex items-center gap-2 mb-2">
             <div className={`p-1.5 rounded-md transition-colors ${isSelected ? 'bg-orange-100' : 'bg-gray-100 group-hover:bg-gray-200'}`}>
-                {/* Icônes dynamiques basées sur ALGO_META si disponible, sinon fallback */}
                 {ALGO_META[name] && React.createElement(ALGO_META[name].icon, { 
                     size: 16, 
                     className: isSelected ? 'text-orange-600' : 'text-gray-500' 
@@ -66,18 +88,15 @@ const ModelTraining = () => {
     const [sessionId] = useState(localStorage.getItem('current_session_id'));
     const [columns, setColumns] = useState([]);
     
-    // 🔴 CORRECTION 1 : Initialiser à null (et pas '') pour différencier "rien" de "clustering"
     const [targetCol, setTargetCol] = useState(null);
     const [problemType, setProblemType] = useState(null);
     const [selectedAlgos, setSelectedAlgos] = useState([]);
     
-    // Pour le dropdown personnalisé
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef(null);
 
     const [autoSuggest] = useState(true);
     
-    // Params & Hyperparams
     const [splitRatio, setSplitRatio] = useState(20); 
     const [kFolds, setKFolds] = useState(5);
     const [showHyperparams, setShowHyperparams] = useState(true); 
@@ -88,17 +107,32 @@ const ModelTraining = () => {
 
     // --- 1. LOAD DATA ---
     useEffect(() => {
-        if (!sessionId) return;
+        if (!sessionId) {
+            // Pas de session, on ne fait rien ici, l'affichage sera géré par le if(!sessionId) plus bas
+            return;
+        }
         const init = async () => {
             try {
-                const res = await labService.getInfo(sessionId);
-                setColumns(res.data.info.columns_summary.map(c => c.name));
-            } catch (e) { toast.error("Erreur chargement session"); }
+                const response = await PreprocessingService.getInfo(sessionId);
+                const realData = response.data || response;
+
+                if (realData && realData.info && Array.isArray(realData.info.columns_summary)) {
+                    setColumns(realData.info.columns_summary.map(c => c.name));
+                } 
+                else if (realData && Array.isArray(realData.columns_summary)) {
+                    setColumns(realData.columns_summary.map(c => c.name));
+                }
+                else {
+                    toast.error("Format de données invalide");
+                }
+            } catch (e) { 
+                console.error("Erreur chargement session"); 
+                // Optionnel: toast.error("Erreur chargement session");
+            }
         };
         init();
     }, [sessionId]);
 
-    // Fermer le dropdown si on clique ailleurs
     useEffect(() => {
         function handleClickOutside(event) {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -111,42 +145,31 @@ const ModelTraining = () => {
 
     // --- 2. DETECT TARGET ---
     const handleTargetSelection = async (colName) => {
-        setIsDropdownOpen(false); // Fermer le menu
-
-        // 🔴 CORRECTION 2 : On autorise le clic si c'est pour changer vers Clustering (chaîne vide)
-        // Si colName est vide (Clustering) et qu'on a déjà targetCol vide, on laisse passer quand même pour forcer le refresh UI
+        setIsDropdownOpen(false);
         if (colName !== "" && colName === targetCol) return;
 
         setTargetCol(colName);
         setSelectedAlgos([]);
         setHyperparams({});
 
-        // ✅ LOGIQUE DE CLUSTERING IMMEDIATE
+        // LOGIQUE CLUSTERING
         if (colName === "") {
-            // 1. On force l'état Unsupervised immédiatement
             setProblemType("Unsupervised"); 
-            
-            // 2. On reset le problème type standard
-            // Pas besoin d'appeler l'API
-            
-            // 3. Auto-select K-Means
             if (autoSuggest) {
-                 // Utilisation d'un timeout pour s'assurer que le rendu a eu lieu ou que l'état est prêt
                  setTimeout(() => toggleAlgo("K-Means", true), 50);
             }
-            
             toast.success("Mode Clustering (Non-supervisé) activé");
             return; 
         }
 
-        // --- Logique standard pour Classification / Régression ---
-        setProblemType(null); // Reset visuel en attendant l'API
-        
+        // LOGIQUE STANDARD
+        setProblemType(null); 
         const tId = toast.loading("Analyse de la cible...");
         
         try {
             const res = await trainingService.detectProblemType(sessionId, colName);
-            const type = res.data.problem_type;
+            const type = res.data ? res.data.problem_type : res.problem_type;
+            
             setProblemType(type);
             toast.success(`Type détecté : ${type}`, { id: tId });
 
@@ -172,14 +195,17 @@ const ModelTraining = () => {
             if (selectedAlgos.includes(algo)) return;
             newSelection = [...selectedAlgos, algo];
             
-            // Charger les hyperparamètres si pas déjà fait
             if (!paramDefinitions[algo]) {
                 try {
                     const res = await trainingService.getHyperparameters(algo);
-                    setParamDefinitions(prev => ({ ...prev, [algo]: res.data }));
-                    const defaults = {};
-                    res.data.forEach(p => defaults[p.name] = p.default);
-                    setHyperparams(prev => ({ ...prev, [algo]: defaults }));
+                    const paramsData = res.data || res;
+                    
+                    if (Array.isArray(paramsData)) {
+                        setParamDefinitions(prev => ({ ...prev, [algo]: paramsData }));
+                        const defaults = {};
+                        paramsData.forEach(p => defaults[p.name] = p.default);
+                        setHyperparams(prev => ({ ...prev, [algo]: defaults }));
+                    }
                 } catch (e) { console.error(e); }
             }
         }
@@ -195,7 +221,6 @@ const ModelTraining = () => {
 
     // --- 4. START TRAIN ---
     const startTraining = async () => {
-        // Validation: Soit on a une targetCol, soit on est en mode Unsupervised
         if ((!targetCol && problemType !== 'Unsupervised') || selectedAlgos.length === 0) return;
         
         setLoading(true);
@@ -204,7 +229,7 @@ const ModelTraining = () => {
         try {
             const payload = {
                 session_id: sessionId,
-                target_column: targetCol, // Sera "" pour Clustering
+                target_column: targetCol,
                 problem_type: problemType,
                 algorithm_names: selectedAlgos,
                 split_ratio: splitRatio / 100,
@@ -213,7 +238,9 @@ const ModelTraining = () => {
             };
 
             const res = await trainingService.trainModels(payload);
-            localStorage.setItem('last_training_results', JSON.stringify(res.data));
+            const resultData = res.data || res; 
+
+            localStorage.setItem('last_training_results', JSON.stringify(resultData));
             toast.success("Terminé ! Redirection...", { id: tId });
             setTimeout(() => { navigate('/results'); }, 1000);
 
@@ -226,30 +253,54 @@ const ModelTraining = () => {
 
     const availableAlgos = problemType ? PROBLEM_TYPES[problemType] : [];
 
+    // --- 5. GESTION DU CAS "PAS DE DONNÉES" (AJOUTÉ ICI) ---
+    if (!sessionId) {
+        return (
+            <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center p-6">
+                <div className="bg-white rounded-3xl p-12 text-center max-w-lg w-full shadow-xl shadow-gray-200 border border-gray-100 animate-in zoom-in-95 duration-300">
+                    <div className="w-20 h-20 bg-orange-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <AlertTriangle size={36} className="text-orange-500" strokeWidth={2}/>
+                    </div>
+                    
+                    <h2 className="text-2xl font-extrabold text-gray-900 mb-2">Aucune donnée chargée</h2>
+                    <p className="text-gray-500 mb-8 font-medium">
+                        Pour entraîner un modèle, vous devez d'abord importer un jeu de données.
+                    </p>
+
+                    <button 
+                        onClick={() => navigate('/ingestion')}
+                        className="px-8 py-3 bg-orange-600 text-white font-bold rounded-xl shadow-lg shadow-orange-200 hover:bg-orange-700 hover:scale-105 transition-all duration-200"
+                    >
+                        Aller à l'Ingestion
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    // --- AFFICHAGE NORMAL (Si sessionId existe) ---
     return (
         <div className="min-h-screen bg-[#F8F9FA] text-gray-800 font-sans p-6">
             <Toaster position="top-center" />
             
             <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-                {/* --- COLONNE GAUCHE (Target & Problem Type) --- */}
+                {/* --- COLONNE GAUCHE (Target) --- */}
                 <div className="lg:col-span-4 space-y-6">
                     <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm min-h-[380px] relative z-20">
-                        <div className="flex items-center gap-3 mb-8">
-                            <div className="p-2.5 bg-orange-100 rounded-xl text-orange-600 shadow-sm shadow-orange-100">
-                                <Target size={22} />
-                            </div>
+                        {/* HEADER AVEC ICONE MODERNE */}
+                        <div className="flex items-center gap-4 mb-8">
+                            <ModernIcon icon={Target} color="orange" />
                             <div>
-                                <h3 className="font-bold text-gray-900">Target Variable</h3>
-                                <p className="text-xs text-gray-500">What do you want to predict?</p>
+                                <h3 className="font-bold text-gray-900 text-lg">Target Variable</h3>
+                                <p className="text-xs text-gray-500 font-medium">What do you want to predict?</p>
                             </div>
                         </div>
 
-                        {/* --- SELECTEUR PERSONNALISÉ (CUSTOM DROPDOWN) --- */}
+                        {/* Dropdown */}
                         <div className="relative mb-8" ref={dropdownRef}>
                             <label className="text-[11px] uppercase tracking-wider font-bold text-gray-400 mb-2 block ml-1">Select Column</label>
                             
-                            {/* Bouton qui déclenche le menu */}
                             <div 
                                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                                 className={`
@@ -259,8 +310,6 @@ const ModelTraining = () => {
                             >
                                 <div className="flex items-center gap-3 text-gray-700">
                                     <Database size={18} className={isDropdownOpen ? 'text-orange-500' : 'text-gray-400'} />
-                                    {/* Affiche le texte approprié si Clustering */}
-                                    {/* Si targetCol est null, on affiche "Choose...". Si targetCol est "" (vide), on affiche "No Target" */}
                                     <span>
                                         {targetCol === "" 
                                             ? "🚫 No Target (Clustering)" 
@@ -271,17 +320,15 @@ const ModelTraining = () => {
                                 <ChevronDown size={18} className={`text-gray-400 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} />
                             </div>
 
-                            {/* Liste déroulante (Custom) */}
+                            {/* Menu Liste */}
                             {isDropdownOpen && (
                                 <div className="absolute left-0 right-0 top-full mt-2 bg-white border border-gray-100 rounded-xl shadow-xl z-50 max-h-60 overflow-y-auto animate-in slide-in-from-top-2 fade-in duration-200">
                                     <div className="p-1">
-                                        
-                                        {/* OPTION CLUSTERING (En haut) */}
                                         <div 
                                             onClick={() => handleTargetSelection("")}
                                             className={`
                                                 px-4 py-3 rounded-lg cursor-pointer text-sm font-bold flex items-center justify-between transition-colors mb-1 border-b border-gray-50
-                                                ${targetCol === "" ? 'bg-violet-50 text-violet-700' : 'text-violet-600 hover:bg-violet-50'}
+                                                ${targetCol === "" ? 'bg-gray-100 text-gray-700' : 'text-gray-500 hover:bg-gray-50'}
                                             `}
                                         >
                                             <div className="flex items-center gap-2">
@@ -291,7 +338,7 @@ const ModelTraining = () => {
                                             {targetCol === "" && <Check size={16} />}
                                         </div>
 
-                                        {columns.map(c => (
+                                        {columns.length > 0 ? columns.map(c => (
                                             <div 
                                                 key={c} 
                                                 onClick={() => handleTargetSelection(c)}
@@ -303,9 +350,8 @@ const ModelTraining = () => {
                                                 {c}
                                                 {targetCol === c && <Check size={16} />}
                                             </div>
-                                        ))}
-                                        {columns.length === 0 && (
-                                            <div className="px-4 py-3 text-sm text-gray-400 text-center italic">Aucune colonne trouvée</div>
+                                        )) : (
+                                            <div className="px-4 py-3 text-sm text-gray-400 text-center italic">Chargement...</div>
                                         )}
                                     </div>
                                 </div>
@@ -315,16 +361,13 @@ const ModelTraining = () => {
                         <div className="mb-2 relative z-10">
                             <h4 className="text-[11px] uppercase tracking-wider font-bold text-gray-400 mb-3 ml-1">Detected Type</h4>
                             <div className="grid grid-cols-2 gap-4 h-24">
-                                
-                                {/* AFFICHER SI CLUSTERING (Unsupervised) */}
                                 {problemType === 'Unsupervised' ? (
-                                    <div className="col-span-2 border-2 border-violet-500 bg-violet-50/50 text-violet-700 rounded-xl flex flex-col items-center justify-center gap-2 shadow-sm animate-in zoom-in">
+                                    <div className="col-span-2 border-2 border-gray-200 bg-gray-50 text-gray-500 rounded-xl flex flex-col items-center justify-center gap-2 shadow-sm animate-in zoom-in">
                                         <Component size={28} />
                                         <span className="text-sm font-bold">Clustering (Unsupervised)</span>
-                                        <div className="w-1.5 h-1.5 rounded-full bg-violet-500 mt-1 animate-pulse"/>
+                                        <div className="w-1.5 h-1.5 rounded-full bg-gray-400 mt-1 animate-pulse"/>
                                     </div>
                                 ) : (
-                                    /* AFFICHER SI SUPERVISE */
                                     <>
                                         <div className={`
                                             border-2 rounded-xl flex flex-col items-center justify-center gap-2 transition-all duration-300
@@ -356,14 +399,13 @@ const ModelTraining = () => {
                 {/* --- COLONNE DROITE (Algorithmes) --- */}
                 <div className="lg:col-span-8">
                     <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm min-h-[380px] z-10">
+                        {/* HEADER AVEC ICONE MODERNE */}
                         <div className="flex justify-between items-center mb-6">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2.5 bg-yellow-50 rounded-xl text-yellow-600 shadow-sm shadow-yellow-100">
-                                    <Zap size={22} />
-                                </div>
+                            <div className="flex items-center gap-4">
+                                <ModernIcon icon={Zap} color="yellow" />
                                 <div>
-                                    <h3 className="font-bold text-gray-900">Algorithms</h3>
-                                    <p className="text-xs text-gray-500">Select one or more to compare</p>
+                                    <h3 className="font-bold text-gray-900 text-lg">Algorithms</h3>
+                                    <p className="text-xs text-gray-500 font-medium">Select one or more to compare</p>
                                 </div>
                             </div>
                         </div>
@@ -380,7 +422,7 @@ const ModelTraining = () => {
                                         key={algo}
                                         name={algo}
                                         description={ALGO_META[algo]?.desc}
-                                        badge={ALGO_META[algo]?.tag} // Use 'tag' from ALGO_META, fall back handled in UI
+                                        badge={ALGO_META[algo]?.tag} 
                                         isSelected={selectedAlgos.includes(algo)}
                                         onClick={() => toggleAlgo(algo)}
                                     />
@@ -390,21 +432,39 @@ const ModelTraining = () => {
                     </div>
                 </div>
 
-                {/* --- LIGNE BASSE : CROSS VALIDATION --- */}
+                {/* --- LIGNE BASSE : EVALUATION / CROSS VALIDATION --- */}
                 <div className="lg:col-span-5">
                     <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm h-full flex flex-col justify-center">
-                        <div className="flex items-center gap-3 mb-6">
-                            <div className="p-2.5 bg-yellow-50 rounded-xl text-orange-600 shadow-sm shadow-orange-100">
-                                <Settings size={20} />
-                            </div>
+                        {/* HEADER AVEC ICONE MODERNE */}
+                        <div className="flex items-center gap-4 mb-6">
+                            <ModernIcon icon={Settings} color="blue" />
                             <div>
-                                <h3 className="font-bold text-gray-900">Cross-Validation</h3>
-                                <p className="text-xs text-gray-500">Evaluation strategy</p>
+                                <h3 className="font-bold text-gray-900 text-lg">Evaluation Strategy</h3>
+                                <p className="text-xs text-gray-500 font-medium">Split & Cross-Validation</p>
                             </div>
                         </div>
 
-                        <div className="space-y-8 px-2">
-                            {/* K-Fold Slider Only */}
+                        <div className="space-y-6 px-2">
+                            {/* --- TEST SIZE SLIDER --- */}
+                            <div className="border-b border-gray-50 pb-6">
+                                <div className="flex justify-between mb-3 items-end">
+                                    <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                                        <PieChart size={14} className="text-gray-400"/> Test Set Size
+                                    </label>
+                                    <span className="text-sm font-bold bg-gray-100 text-gray-700 px-2 py-0.5 rounded-md min-w-[40px] text-center">{splitRatio}%</span>
+                                </div>
+                                <input 
+                                    type="range" min="10" max="50" step="5"
+                                    value={splitRatio} onChange={e=>setSplitRatio(e.target.value)}
+                                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-orange-500 hover:accent-orange-600 transition-colors"
+                                />
+                                <div className="flex justify-between mt-2 text-[10px] text-gray-400 font-medium uppercase tracking-wider">
+                                    <span>Training (90%)</span>
+                                    <span>Balanced (50%)</span>
+                                </div>
+                            </div>
+
+                            {/* K-Fold Slider */}
                             <div>
                                 <div className="flex justify-between mb-3 items-end">
                                     <label className="text-sm font-bold text-gray-700">Number of Folds</label>
@@ -431,13 +491,12 @@ const ModelTraining = () => {
                             className="p-6 flex justify-between items-center cursor-pointer hover:bg-gray-50 rounded-t-xl transition-colors"
                             onClick={() => setShowHyperparams(!showHyperparams)}
                         >
-                            <div className="flex items-center gap-3">
-                                <div className="p-2.5 bg-gray-100 rounded-xl text-gray-500 shadow-sm">
-                                    <Sliders size={20} />
-                                </div>
+                            {/* HEADER AVEC ICONE MODERNE */}
+                            <div className="flex items-center gap-4">
+                                <ModernIcon icon={Sliders} color="gray" />
                                 <div>
-                                    <h3 className="font-bold text-gray-900">Hyperparameters</h3>
-                                    <p className="text-xs text-gray-500">Fine-tune model configuration</p>
+                                    <h3 className="font-bold text-gray-900 text-lg">Hyperparameters</h3>
+                                    <p className="text-xs text-gray-500 font-medium">Fine-tune model configuration</p>
                                 </div>
                             </div>
                             {showHyperparams ? <ChevronUp className="text-gray-400"/> : <ChevronDown className="text-gray-400"/>}
@@ -491,7 +550,6 @@ const ModelTraining = () => {
 
                     <button 
                         onClick={startTraining}
-                        // ✅ CORRECTION 3 : Activer le bouton si Unsupervised, même si targetCol est ""
                         disabled={loading || (!targetCol && problemType !== 'Unsupervised') || selectedAlgos.length === 0}
                         className={`
                             w-full md:w-auto px-8 py-3 rounded-lg font-bold text-white shadow-md flex justify-center items-center gap-2 transition-all

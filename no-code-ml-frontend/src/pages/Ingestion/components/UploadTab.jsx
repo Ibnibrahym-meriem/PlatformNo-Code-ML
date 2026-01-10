@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import dataService from '../../../services/data.service';
+import { UploadCloud, FileSpreadsheet, FileJson, Loader2 } from 'lucide-react';
 
 const UploadTab = ({ onSuccess }) => {
   const [loading, setLoading] = useState(false);
@@ -12,7 +13,7 @@ const UploadTab = ({ onSuccess }) => {
     await processUpload(file);
   };
 
-  // Logique d'envoi au backend
+  // Logique d'envoi au backend (Inchangée)
   const processUpload = async (file) => {
     setLoading(true);
     try {
@@ -26,58 +27,75 @@ const UploadTab = ({ onSuccess }) => {
   };
 
   return (
-    <div className="max-w-2xl mx-auto h-full flex flex-col justify-center">
+    <div className="h-full flex flex-col justify-center max-w-2xl mx-auto py-6">
+      
       <div 
         className={`
-          relative border-2 border-dashed rounded-3xl p-12 text-center transition-all duration-300
-          flex flex-col items-center justify-center gap-6 group
-          ${dragActive ? 'border-brand-500 bg-brand-50' : 'border-gray-300 hover:border-brand-400 hover:bg-gray-50'}
+          relative flex flex-col items-center justify-center h-[450px]
+          border-2 border-dashed rounded-3xl transition-all duration-300 ease-out group
+          ${dragActive 
+            ? 'border-orange-500 bg-orange-50/40 scale-[1.01]' 
+            : 'border-gray-200 bg-white hover:border-orange-300 hover:bg-gray-50/50 hover:shadow-sm'
+          }
         `}
         onDragEnter={() => setDragActive(true)}
         onDragLeave={() => setDragActive(false)}
         onDrop={() => setDragActive(false)}
       >
-        {/* Input invisible qui couvre toute la zone */}
+        {/* Input invisible - Parquet retiré de accept */}
         <input 
           type="file" 
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-50"
           onChange={handleFileChange}
-          accept=".csv, .xlsx, .xls, .parquet, .json"
+          accept=".csv, .xlsx, .xls, .json"
           disabled={loading}
         />
 
-        {/* Visuel */}
-        <div className={`
-          w-20 h-20 rounded-2xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110
-          ${loading ? 'bg-gray-100 animate-pulse' : 'bg-orange-100 text-brand-600'}
-        `}>
-          {loading ? (
-             // Spinner simple
-             <svg className="w-8 h-8 animate-spin text-brand-600" fill="none" viewBox="0 0 24 24">
-               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-             </svg>
-          ) : (
-             // Icone Document
-             <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-               <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-             </svg>
-          )}
-        </div>
+        {/* --- ETAT DE CHARGEMENT --- */}
+        {loading ? (
+            <div className="flex flex-col items-center animate-in fade-in zoom-in duration-300">
+                <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-lg border border-orange-100 mb-6">
+                    <Loader2 className="w-10 h-10 text-orange-600 animate-spin" strokeWidth={2} />
+                </div>
+                <h3 className="text-xl font-bold text-gray-800">Uploading data...</h3>
+                <p className="text-gray-500 mt-2 text-sm">Please wait while we process your file.</p>
+            </div>
+        ) : (
+            /* --- ETAT NORMAL --- */
+            <div className="flex flex-col items-center text-center pointer-events-none px-6">
+                
+                {/* Icone Principale avec dégradé thème */}
+                <div className={`
+                    w-24 h-24 rounded-2xl flex items-center justify-center mb-8 shadow-xl shadow-orange-500/10 transition-transform duration-500 group-hover:scale-110
+                    bg-gradient-to-br from-orange-400 to-orange-600
+                `}>
+                    <UploadCloud className="w-12 h-12 text-white" strokeWidth={1.5} />
+                </div>
 
-        <div>
-          <h3 className="text-xl font-bold text-gray-800">
-            {loading ? 'Uploading your data...' : 'Drop files here or click to browse'}
-          </h3>
-          <p className="text-gray-500 mt-2 text-sm">
-            Supports CSV, Excel (.xlsx), JSON, Parquet
-          </p>
-        </div>
+                <h3 className="text-2xl font-bold text-gray-800 mb-3">
+                    Click to upload or drag and drop
+                </h3>
+                <p className="text-gray-500 mb-8 max-w-sm mx-auto leading-relaxed">
+                    Import your dataset to start the analysis. Supported formats:
+                </p>
 
-        {!loading && (
-          <button className="bg-white border border-gray-300 text-gray-700 px-6 py-2 rounded-lg font-semibold shadow-sm group-hover:bg-brand-50 group-hover:text-brand-700 group-hover:border-brand-200 transition">
-            Select File
-          </button>
+                {/* Badges Formats - Parquet retiré */}
+                <div className="flex items-center gap-3 justify-center mb-8">
+                    <div className="flex items-center gap-1.5 bg-gray-100 px-3 py-1.5 rounded-lg border border-gray-200">
+                        <FileSpreadsheet size={14} className="text-green-600"/> 
+                        <span className="text-xs font-bold text-gray-600">CSV / Excel</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 bg-gray-100 px-3 py-1.5 rounded-lg border border-gray-200">
+                        <FileJson size={14} className="text-yellow-600"/> 
+                        <span className="text-xs font-bold text-gray-600">JSON</span>
+                    </div>
+                </div>
+
+                {/* Bouton Faux (Visuel seulement) */}
+                <button className="px-8 py-3 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl shadow-sm group-hover:border-orange-300 group-hover:text-orange-600 transition-colors">
+                    Browse Computer
+                </button>
+            </div>
         )}
       </div>
     </div>

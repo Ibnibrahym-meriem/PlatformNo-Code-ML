@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react'; // Ajout de useEffect
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { Zap, ArrowLeft } from 'lucide-react';
@@ -10,6 +10,13 @@ const Login = () => {
   const navigate = useNavigate();
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // ✅ NETTOYAGE DE SÉCURITÉ AU CHARGEMENT DE LA PAGE
+  useEffect(() => {
+    localStorage.removeItem('current_session_id');
+    localStorage.removeItem('current_filename');
+    localStorage.removeItem('last_training_results');
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -44,7 +51,7 @@ const Login = () => {
       <div className="flex-grow flex items-center justify-center">
         <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 w-full max-w-md">
           
-          {/* Logo Éclair (Identique à Register) */}
+          {/* Logo Éclair */}
           <div className="text-center mb-8">
             <div className="w-12 h-12 bg-orange-600 rounded-xl mx-auto text-white flex items-center justify-center shadow-md mb-4">
                 <Zap size={24} fill="currentColor" strokeWidth={0} />
