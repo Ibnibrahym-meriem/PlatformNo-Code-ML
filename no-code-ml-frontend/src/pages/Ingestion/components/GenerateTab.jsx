@@ -35,15 +35,17 @@ const GenerateTab = ({ onSuccess }) => {
   const handleGenerateSimple = async () => {
     setLoading(true);
     try {
-      const payload = {
-        n_rows: Number(simpleRows),
-        n_cols: Number(simpleCols),
-        task: simpleTask
-      };
-      const res = await dataService.generateSimple(payload);
+      // CORRECTION ICI : On passe les arguments séparément au service
+      // Et on s'assure que ce sont bien des nombres (Number())
+      const n_rows = Number(simpleRows);
+      const n_cols = Number(simpleCols);
+      
+      const res = await dataService.generateSimple(n_rows, n_cols, simpleTask);
+      
       onSuccess(res.data || res);
     } catch (err) {
-      alert("Erreur génération simple: " + err.message);
+      console.error(err);
+      alert("Erreur génération simple: " + (err.response?.data?.detail || err.message));
     } finally {
       setLoading(false);
     }
@@ -110,7 +112,7 @@ const GenerateTab = ({ onSuccess }) => {
         onSuccess(res.data || res);
     } catch (err) {
         console.error(err);
-        alert("Erreur génération custom: " + err.message);
+        alert("Erreur génération custom: " + (err.response?.data?.detail || err.message));
     } finally {
         setLoading(false);
     }
@@ -235,7 +237,7 @@ const GenerateTab = ({ onSuccess }) => {
                                     <option value="float">Float</option>
                                 </select>
                             </div>
-                            {/* BOUTON SUPPRIMER COLONNE : Gris au repos, Orange au survol */}
+                            {/* BOUTON SUPPRIMER COLONNE */}
                             <button onClick={() => removeColumn(colIndex)} className="text-gray-300 hover:text-orange-500 p-1 mt-3 transition-colors">
                                 <Trash2 size={16}/>
                             </button>
@@ -282,7 +284,6 @@ const GenerateTab = ({ onSuccess }) => {
                                         <span className="absolute right-1 top-1.5 text-xs text-gray-400">%</span>
                                     </div>
                                     {col.rules.length > 1 && (
-                                        // BOUTON SUPPRIMER REGLE : Gris -> Orange
                                         <button onClick={() => removeRule(colIndex, ruleIndex)} className="text-gray-400 hover:text-orange-500 transition-colors">
                                             <Trash2 size={12}/>
                                         </button>

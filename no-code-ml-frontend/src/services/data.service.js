@@ -11,19 +11,16 @@ const dataService = {
   },
 
   // 2. KAGGLE SEARCH
-  // Appelle @router.get("/kaggle/search")
   searchKaggle: (query) => {
     return axiosClient.get(`/data/kaggle/search?query=${query}`);
   },
 
   // 3. KAGGLE IMPORT
-  // Appelle @router.get("/kaggle") avec le paramètre 'dataset'
   ingestKaggle: (datasetId) => {
     return axiosClient.get(`/data/kaggle?dataset=${datasetId}`);
   },
 
-  // 4. SAUVEGARDE DES CLÉS (Tentative via route standard User)
-  // Puisqu'on ne touche pas au backend ingestion, on tente la route User standard
+  // 4. SAUVEGARDE DES CLÉS
   saveKaggleKeys: (username, key) => {
     return axiosClient.patch('/users/me', { 
       kaggle_username: username, 
@@ -48,10 +45,20 @@ const dataService = {
     });
   },
 
-  // 7. GENERATE & MANUAL
+  // 7. GENERATE (CORRIGÉ)
+  
+  // Note: Attend 3 arguments séparés pour correspondre au backend
   generateSimple: (n_rows, n_cols, task) => {
     return axiosClient.post('/data/generate/simple', { n_rows, n_cols, task });
   },
+
+  // AJOUT DE CETTE FONCTION MANQUANTE
+  generateCustom: (payload) => {
+    // Le payload est déjà un objet complet formaté par le composant
+    return axiosClient.post('/data/generate/custom', payload);
+  },
+
+  // 8. MANUAL
   ingestManual: (jsonData) => {
     return axiosClient.post('/data/manual', { data: jsonData });
   }
