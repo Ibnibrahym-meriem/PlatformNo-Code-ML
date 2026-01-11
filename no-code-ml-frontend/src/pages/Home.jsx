@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Zap } from 'lucide-react';
+import { Zap, X } from 'lucide-react'; // J'ai ajouté l'icône X pour fermer la vidéo
 
 // --- ICONES SVG (Style Ligne fin & Élégant) ---
 const IconDatabase = () => (
@@ -43,11 +43,7 @@ const IconBookSmall = () => (
     <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25" />
   </svg>
 );
-const IconHistory = () => (
-  <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.2}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-  </svg>
-);
+// IconHistory supprimée comme demandé
 
 // Hook pour détecter quand un élément entre dans le viewport avec un seuil ajusté
 const useScrollAnimation = () => {
@@ -87,6 +83,9 @@ const Home = () => {
   const navigate = useNavigate();
   const [scrollY, setScrollY] = useState(0);
   const [navBg, setNavBg] = useState(false);
+  
+  // State pour gérer l'affichage de la vidéo
+  const [showVideo, setShowVideo] = useState(false);
 
   // Gestion du scroll pour la navbar
   useEffect(() => {
@@ -106,7 +105,7 @@ const Home = () => {
     { title: "Getting Started", desc: "Learn the basics and start your first ML project", icon: <IconBookSmall /> },
     { title: "Data Import Guide", desc: "How to import data from various sources", icon: <IconDatabase /> },
     { title: "EDA & Visualization", desc: "Explore your data with interactive charts", icon: <IconChart /> },
-    { title: "Data Lab", desc: "Clean and preprocess your data with AI tools", icon: <IconSparkles /> },
+    { title: "Data Lab", desc: "Clean and preprocess your data with smart tools", icon: <IconSparkles /> }, // "AI tools" remplacé par "smart tools"
     { title: "Model Training", desc: "Configure and train ML models", icon: <IconChip /> },
     { title: "Results & Export", desc: "Evaluate performance and deploy models", icon: <IconResult /> },
   ];
@@ -131,7 +130,7 @@ const Home = () => {
             <div className="w-10 h-10 bg-gradient-to-br from-orange-600 to-orange-500 rounded-xl text-white flex items-center justify-center shadow-lg shadow-orange-200/50 group-hover:shadow-xl group-hover:shadow-orange-300/60 transition-all duration-300 group-hover:scale-110 group-hover:rotate-3">
               <Zap size={20} fill="currentColor" strokeWidth={0} />
             </div>
-            <span className="font-bold text-xl tracking-tight text-slate-900 group-hover:text-orange-600 transition-colors duration-300">DataFlow </span>
+            <span className="font-bold text-xl tracking-tight text-slate-900 group-hover:text-orange-600 transition-colors duration-300">DataFlow</span>
           </div>
           
           <div className="hidden md:flex gap-10 text-slate-600 font-medium text-sm tracking-wide">
@@ -163,8 +162,6 @@ const Home = () => {
         
         <div className="relative z-10 animate-in fade-in slide-in-from-bottom-8 duration-1000" style={{animationDelay: '100ms', animationFillMode: 'both'}}>
           
-          {/* BADGE SUPPRIMÉ ICI */}
-          
           <h1 className="text-6xl md:text-8xl font-extrabold text-slate-900 mb-8 leading-[1.1] tracking-tight animate-in fade-in slide-in-from-bottom-8 duration-1000" style={{animationDelay: '300ms', animationFillMode: 'both'}}>
             Build Machine Learning <br />
             Models <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-600 via-orange-500 to-orange-400 animate-gradient">Without Code</span>
@@ -182,7 +179,12 @@ const Home = () => {
               </span>
               <div className="absolute inset-0 bg-gradient-to-r from-orange-400 to-orange-300 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
             </Link>
-            <button className="group px-10 py-5 bg-white text-slate-700 text-lg font-bold rounded-2xl border-2 border-slate-200 hover:bg-slate-50 hover:border-orange-300 transition-all duration-300 flex items-center justify-center gap-3 shadow-lg shadow-slate-200/50 hover:shadow-xl hover:shadow-orange-200/30 hover:-translate-y-1">
+            
+            {/* BOUTON MODIFIÉ POUR LA VIDÉO */}
+            <button 
+              onClick={() => setShowVideo(true)}
+              className="group px-10 py-5 bg-white text-slate-700 text-lg font-bold rounded-2xl border-2 border-slate-200 hover:bg-slate-50 hover:border-orange-300 transition-all duration-300 flex items-center justify-center gap-3 shadow-lg shadow-slate-200/50 hover:shadow-xl hover:shadow-orange-200/30 hover:-translate-y-1"
+            >
               <span className="text-orange-600 group-hover:scale-110 transition-transform duration-300">▷</span> 
               Watch Demo
             </button>
@@ -212,14 +214,15 @@ const Home = () => {
 
           <div className="flex flex-wrap justify-center gap-8">
             
+            {/* CARTE HISTORIQUE SUPPRIMÉE DE LA LISTE */}
             {[
               { icon: <IconBookLarge />, title: "Documentation", desc: "Comprehensive guides, tutorials, and API references to master the platform.", delay: 0 },
               { icon: <IconDatabase />, title: "Data Ingestion", desc: "Import datasets from CSV, Kaggle, or external URLs securely and instantly.", delay: 100 },
-              { icon: <IconChart />, title: "Visual Exploration", desc: "Discover patterns with interactive charts and AI-driven analysis tools.", delay: 200 },
+              { icon: <IconChart />, title: "Visual Exploration", desc: "Discover patterns with interactive charts and automated analysis tools.", delay: 200 }, // "AI-driven" -> "automated"
               { icon: <IconSparkles />, title: "Data Lab", desc: "Automatically clean, normalize, fill missing values and fix quality.", delay: 0 },
               { icon: <IconChip />, title: "Model Training", desc: "Train advanced machine learning models (RF, SVM, XGB) with one click.", delay: 100 },
               { icon: <IconResult />, title: "Results", desc: "Evaluate performance metrics, compare models and export reports.", delay: 200 },
-              { icon: <IconHistory />, title: "History", desc: "Track your experiments, compare model versions, and audit past runs.", delay: 0 },
+              // Historique supprimé ici
             ].map((item, idx) => (
               <div 
                 key={idx}
@@ -276,13 +279,13 @@ const Home = () => {
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-600 to-orange-400">Not Infrastructure</span>
             </h2>
             <p className="text-xl text-slate-500 mb-12 leading-relaxed font-light">
-              Our AI handles the heavy lifting — from data cleaning to model selection. 
+              Our system handles the heavy lifting — from data cleaning to model selection. 
               You focus on what matters: understanding your data.
-            </p>
+            </p> {/* "Our AI" -> "Our system" */}
             <ul className="space-y-6">
               {[
                 "No coding required",
-                "AI-assisted data cleaning",
+                "Automated data cleaning", // "AI-assisted" -> "Automated"
                 "Interactive visualizations",
                 "Multiple ML algorithms",
                 "Export results easily"
@@ -342,7 +345,7 @@ const Home = () => {
               Resources
             </span>
             <h2 className="text-5xl md:text-6xl font-extrabold mt-8 text-slate-900 tracking-tight">Documentation</h2>
-            <p className="text-slate-500 mt-6 max-w-2xl mx-auto text-xl font-light">Everything you need to get started and master DataFlow AI</p>
+            <p className="text-slate-500 mt-6 max-w-2xl mx-auto text-xl font-light">Everything you need to get started and master DataFlow</p> {/* Supprimé "AI" */}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -403,8 +406,8 @@ const Home = () => {
               </h2>
               
               <p className="text-xl text-slate-600 mb-12 max-w-3xl mx-auto font-light leading-relaxed">
-                Join thousands of data scientists who are building ML models faster with DataFlow .
-              </p>
+                Join thousands of data scientists who are building ML models faster with DataFlow.
+              </p> {/* Supprimé "AI" */}
               
               <div className="flex justify-center gap-6">
                 <Link to="/register" className="group px-12 py-5 bg-gradient-to-r from-orange-600 to-orange-500 text-white text-xl font-bold rounded-2xl hover:from-orange-700 hover:to-orange-600 transition-all duration-300 shadow-2xl shadow-orange-300/50 hover:shadow-2xl hover:shadow-orange-400/60 hover:-translate-y-2 hover:scale-105 relative overflow-hidden">
@@ -427,7 +430,7 @@ const Home = () => {
             <div className="w-12 h-12 bg-gradient-to-br from-orange-600 to-orange-500 rounded-xl text-white flex items-center justify-center shadow-lg shadow-orange-200/50 group-hover:shadow-xl group-hover:shadow-orange-300/60 transition-all duration-300 group-hover:scale-110 group-hover:rotate-3">
               <Zap size={22} fill="currentColor" strokeWidth={0} />
             </div>
-            <span className="font-bold text-slate-900 text-xl group-hover:text-orange-600 transition-colors duration-300">DataFlow AI</span>
+            <span className="font-bold text-slate-900 text-xl group-hover:text-orange-600 transition-colors duration-300">DataFlow</span> {/* Supprimé "AI" */}
           </div>
           
           <div className="flex gap-10 text-base text-slate-500 font-medium">
@@ -446,10 +449,35 @@ const Home = () => {
           </div>
           
           <div className="text-base text-slate-400 font-light">
-            © 2026 DataFlow AI. All rights reserved.
+            © 2026 DataFlow. All rights reserved. {/* Supprimé "AI" */}
           </div>
         </div>
       </footer>
+
+      {/* --- VIDEO MODAL --- */}
+      {showVideo && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300" onClick={() => setShowVideo(false)}>
+          <div className="relative w-full max-w-5xl bg-black rounded-3xl overflow-hidden shadow-2xl border border-white/10" onClick={e => e.stopPropagation()}>
+            <button 
+              onClick={() => setShowVideo(false)} 
+              className="absolute top-4 right-4 text-white/70 hover:text-white bg-black/50 hover:bg-orange-600 rounded-full p-2 transition-all duration-300 z-10"
+            >
+              <X size={24} />
+            </button>
+            <div className="aspect-video w-full">
+              {/* Assure-toi que la vidéo est dans public/demo.mp4 */}
+              <video 
+                src="/demo.mp4" 
+                controls 
+                autoPlay 
+                className="w-full h-full object-contain"
+              >
+                Votre navigateur ne supporte pas la lecture de vidéos.
+              </video>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style jsx>{`
         @keyframes float {

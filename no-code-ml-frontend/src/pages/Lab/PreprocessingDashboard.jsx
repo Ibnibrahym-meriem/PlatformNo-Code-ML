@@ -443,7 +443,7 @@ const DataLab = () => {
                         </div>
                     )}
 
-                    {/* STEP 1: CLEANING */}
+                    {/* STEP 1: CLEANING (MODIFIÉ POUR CORRIGER L'AFFICHAGE DU SELECTEUR) */}
                     {currentStep === 1 && (
                         <div className="space-y-6 h-full flex flex-col animate-in fade-in duration-300">
                              <div className="flex items-center gap-4 p-5 bg-white border border-gray-200 rounded-xl transition-all cursor-pointer hover:border-orange-300" onClick={() => setDropDups(!dropDups)}>
@@ -456,15 +456,18 @@ const DataLab = () => {
                                 </div>
                             </div>
 
-                            <div className="flex-1 overflow-hidden flex flex-col bg-white rounded-xl border border-gray-200">
+                            {/* MODIFICATION ICI : Suppression de overflow-hidden pour permettre au sélecteur de sortir */}
+                            <div className="flex-1 flex flex-col bg-white rounded-xl border border-gray-200">
                                 <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
                                     <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Missing Values</h4>
                                     <span className="text-xs font-bold bg-white border border-gray-200 text-gray-600 px-2 py-1 rounded">{dataInfo.columns_summary.filter(c => c.missing > 0).length} columns</span>
                                 </div>
-                                <div className="space-y-1 overflow-y-auto custom-scroll p-4 flex-1">
+                                {/* MODIFICATION ICI : overflow-visible au lieu de overflow-y-auto */}
+                                <div className="space-y-1 overflow-visible p-4 flex-1">
                                     {dataInfo.columns_summary.filter(c => c.missing > 0).length > 0 ? (
                                         dataInfo.columns_summary.filter(c => c.missing > 0).map(col => (
-                                            <div key={col.name} className="flex flex-col sm:flex-row justify-between items-center p-3 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors">
+                                            // MODIFICATION ICI : relative et hover:z-50 pour gérer l'empilement
+                                            <div key={col.name} className="relative hover:z-50 flex flex-col sm:flex-row justify-between items-center p-3 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors">
                                                 <div className="mb-2 sm:mb-0 w-full">
                                                     <div className="font-medium text-gray-800 text-sm">{col.name}</div>
                                                     <div className="text-orange-500 text-xs font-medium mt-0.5">{col.missing} missing</div>
@@ -488,7 +491,7 @@ const DataLab = () => {
                         </div>
                     )}
 
-                    {/* STEP 2: ENCODING */}
+                    {/* STEP 2: ENCODING (MODIFIÉ POUR CORRIGER L'AFFICHAGE DU SELECTEUR) */}
                     {currentStep === 2 && (
                         <div className="space-y-6 h-full flex flex-col animate-in fade-in duration-300">
                             <div className="p-4 bg-gray-50 border border-gray-100 rounded-xl text-gray-600 flex items-center gap-3">
@@ -498,10 +501,13 @@ const DataLab = () => {
                                     <div className="text-xs text-gray-500">Convert text labels into numbers.</div>
                                 </div>
                             </div>
-                            <div className="overflow-y-auto custom-scroll space-y-2 flex-1">
+                            
+                            {/* MODIFICATION ICI : overflow-visible au lieu de overflow-y-auto */}
+                            <div className="space-y-2 flex-1 overflow-visible">
                                 {catCols.length > 0 && catCols.some(c => c !== targetCol && c !== 'NO_TARGET') ? (
                                     catCols.map(col => (
-                                    <div key={col} className="flex flex-col sm:flex-row justify-between sm:items-center p-4 border border-gray-200 rounded-xl bg-white">
+                                    // MODIFICATION ICI : relative et hover:z-50 pour gérer l'empilement
+                                    <div key={col} className="relative hover:z-50 flex flex-col sm:flex-row justify-between sm:items-center p-4 border border-gray-200 rounded-xl bg-white">
                                         <div className="flex items-center gap-3">
                                             <div className="w-8 h-8 rounded bg-gray-100 flex items-center justify-center text-gray-500 font-bold text-xs">Aa</div>
                                             <div>
@@ -685,16 +691,13 @@ const DataLab = () => {
                               })}
                           </tr>
                       </thead>
-                      {/* --- MODIFICATION ICI : Sécurisation de l'affichage en cas de données manquantes --- */}
                       <tbody className="divide-y divide-gray-50">
                           {dataInfo.preview && dataInfo.preview.length > 0 ? (
                               dataInfo.preview.map((row, i) => (
                                   <tr key={i} className="hover:bg-gray-50/80 transition-colors">
                                       {dataInfo.columns_summary.map(col => {
                                           const isSelected = selectedColumnStats?.name === col.name;
-                                          // Protection contre les valeurs undefined ou null
                                           const cellValue = row[col.name];
-                                          // Vérifie si la valeur existe vraiment (n'est pas null et n'est pas undefined)
                                           const displayValue = (cellValue !== null && cellValue !== undefined) 
                                             ? String(cellValue).substring(0, 25) 
                                             : null;
