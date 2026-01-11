@@ -48,7 +48,8 @@
 
 ### Frontend
 - **Framework:** React.js, Vite
-- **Styling:** CSS Modules / Tailwind
+- **Styling:** Tailwind CSS (PostCSS, Autoprefixer)
+- **Icons:** Lucide React
 - **Charting:** Recharts
 - **HTTP Client:** Axios
 
@@ -97,9 +98,15 @@ Navigate to the frontend folder and install Node packages.
 # Open a new terminal
 cd no-code-ml-frontend
 
-# Install dependencies
+# 1. Install base dependencies
 npm install
 
+# 2. Install UI libraries (Axios, Router, Icons, Charts)
+npm install axios react-router-dom lucide-react recharts
+
+# 3. Install and Init Tailwind CSS
+npm install -D tailwindcss postcss autoprefixer
+npx tailwindcss init -p
 ```
 
 ---
@@ -121,7 +128,7 @@ python run.py
 
 ```bash
 # Inside /no-code-ml-frontend folder
-npm start
+npm run dev
 
 ```
 
