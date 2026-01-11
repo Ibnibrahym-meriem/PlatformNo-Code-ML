@@ -131,7 +131,7 @@ const Home = () => {
             <div className="w-10 h-10 bg-gradient-to-br from-orange-600 to-orange-500 rounded-xl text-white flex items-center justify-center shadow-lg shadow-orange-200/50 group-hover:shadow-xl group-hover:shadow-orange-300/60 transition-all duration-300 group-hover:scale-110 group-hover:rotate-3">
               <Zap size={20} fill="currentColor" strokeWidth={0} />
             </div>
-            <span className="font-bold text-xl tracking-tight text-slate-900 group-hover:text-orange-600 transition-colors duration-300">DataFlow AI</span>
+            <span className="font-bold text-xl tracking-tight text-slate-900 group-hover:text-orange-600 transition-colors duration-300">DataFlow </span>
           </div>
           
           <div className="hidden md:flex gap-10 text-slate-600 font-medium text-sm tracking-wide">
@@ -171,8 +171,7 @@ const Home = () => {
           </h1>
           
           <p className="text-2xl text-slate-500 max-w-3xl mx-auto mb-12 leading-relaxed font-light animate-in fade-in slide-in-from-bottom-6 duration-1000" style={{animationDelay: '400ms', animationFillMode: 'both'}}>
-            From data ingestion to model training — automate your ML workflow with 
-            AI-powered tools. Clean, explore, and train models in minutes.
+            From data ingestion to model training — automate your ML —  Clean, explore, and train models in minutes.
           </p>
           
           <div className="flex flex-col sm:flex-row gap-6 justify-center w-full animate-in fade-in slide-in-from-bottom-4 duration-1000" style={{animationDelay: '500ms', animationFillMode: 'both'}}>
@@ -404,7 +403,7 @@ const Home = () => {
               </h2>
               
               <p className="text-xl text-slate-600 mb-12 max-w-3xl mx-auto font-light leading-relaxed">
-                Join thousands of data scientists who are building ML models faster with DataFlow AI.
+                Join thousands of data scientists who are building ML models faster with DataFlow .
               </p>
               
               <div className="flex justify-center gap-6">
