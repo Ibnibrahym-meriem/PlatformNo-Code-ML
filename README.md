@@ -141,10 +141,10 @@ npm run dev
 This project was developed as part of a **Master 1 Data Science** project.
 
 **The Team:**
-
+* **IBN IBRAHYM MERIEM**
 * **EL MANSOURI AYA**
 * **EL RHORBA AYA**
-* **IBN IBRAHYM MERIEM**
+
 
 ## 📄 License
 
